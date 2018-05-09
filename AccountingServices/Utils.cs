@@ -111,6 +111,17 @@ namespace AccountingServices
         {
             return AbsoluteStart(dateTime).AddDays(1).AddTicks(-1);
         }
+
+        public static IEnumerable<Tuple<DateTime, DateTime>> SplitDateRange(DateTime start, DateTime end, int dayChunkSize)
+        {
+            DateTime chunkEnd;
+            while ((chunkEnd = start.AddDays(dayChunkSize)) < end)
+            {
+                yield return Tuple.Create(start, chunkEnd);
+                start = chunkEnd;
+            }
+            yield return Tuple.Create(start, end);
+        }
     }
 
     public class FileDate

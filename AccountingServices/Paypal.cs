@@ -15,8 +15,10 @@ namespace AccountingServices
     {
         public static List<PayPalTransaction> GetPayPalTransactions(IMyConfiguration configuration, DateTime from, DateTime to)
         {
-            //var transaction = GetPayPalTransactionsList(configuration, from, to);
-            return GetPayPalTransactionsList(configuration, DateTime.Now.AddDays(-31), DateTime.Now);
+            var payPalTransactions = new List<PayPalTransaction>();
+            GetPayPalTransactionsList(configuration, from, to, payPalTransactions);
+            //GetPayPalTransactionsList(configuration, DateTime.Now.AddDays(-31), DateTime.Now, payPalTransactions);
+            return payPalTransactions;
         }
 
         private static string GetAccessToken(IMyConfiguration configuration)
@@ -76,10 +78,8 @@ namespace AccountingServices
             return accessToken;
         }
 
-        private static List<PayPalTransaction> GetPayPalTransactionsList(IMyConfiguration configuration, DateTime from, DateTime to)
+        private static void GetPayPalTransactionsList(IMyConfiguration configuration, DateTime from, DateTime to, List<PayPalTransaction> payPalTransactions)
         {
-            var payPalTransactions = new List<PayPalTransaction>();
-
             try
             {
                 Task.Run(async () =>
@@ -89,21 +89,24 @@ namespace AccountingServices
                     // Step 1: Get an access token
                     var accessToken = await GetPayPalAccessTokenAsync(configuration, httpClient);
 
-                    // Step 2: List the transactions
-                    payPalTransactions = await GetPayPalTransactionsAsync(httpClient, accessToken, from, to);
+                    // split the date range into smaller chunks since the maximum number of days in the range supported is 31
+                    var dateRanges = Utils.SplitDateRange(from, to, 31);
+
+                    foreach (var dateRange in dateRanges)
+                    {
+                        // Step 2: Get the transactions
+                        await GetPayPalTransactionsAsync(httpClient, accessToken, dateRange.Item1, dateRange.Item2, payPalTransactions);
+                    }
+
                 }).Wait();
             }
             catch (Exception e)
             {
                 Console.WriteLine("ERROR: Could not get paypal transactions! '{0}'", e.Message);
             }
-
-            return payPalTransactions;
         }
-        private static async Task<List<PayPalTransaction>> GetPayPalTransactionsAsync(HttpClient httpClient, PayPalAccessToken accessToken, DateTime from, DateTime to)
+        private static async Task GetPayPalTransactionsAsync(HttpClient httpClient, PayPalAccessToken accessToken, DateTime from, DateTime to, List<PayPalTransaction> payPalTransactions)
         {
-            var payPalTransactions = new List<PayPalTransaction>();
-
             string startDate = string.Format("{0:yyyy-MM-ddTHH\\:mm\\:ssZ}", from);
             string endDate = string.Format("{0:yyyy-MM-ddTHH\\:mm\\:ssZ}", to);
             string url = $"https://api.paypal.com/v1/reporting/transactions?fields=all&page_size=100&page=1&start_date={startDate}&end_date={endDate}";
@@ -156,8 +159,6 @@ namespace AccountingServices
 
                 payPalTransactions.Add(payPalTransaction);
             }
-
-            return payPalTransactions;
         }
     }
 
