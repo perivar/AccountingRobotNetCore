@@ -1,10 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using System.Xml.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PayPal.Api;
@@ -15,10 +20,145 @@ namespace AccountingServices
     {
         public static List<PayPalTransaction> GetPayPalTransactions(IMyConfiguration configuration, DateTime from, DateTime to)
         {
-            var payPalTransactions = new List<PayPalTransaction>();
-            GetPayPalTransactionsList(configuration, from, to, payPalTransactions);
+            var payPalTransactions = GetPayPalTransactionsListSoap(configuration, from, to);
+
+            //var payPalTransactions = new List<PayPalTransaction>();
+            //GetPayPalTransactionsListRest(configuration, from, to, payPalTransactions);
             //GetPayPalTransactionsList(configuration, DateTime.Now.AddDays(-31), DateTime.Now, payPalTransactions);
+            
             return payPalTransactions;
+        }
+
+        private static List<PayPalTransaction> GetPayPalTransactionsListSoap(IMyConfiguration configuration, DateTime from, DateTime to)
+        {
+            var payPalTransactions = new List<PayPalTransaction>();
+
+            try
+            {
+                using (var httpClient = new HttpClient(new HttpClientHandler() { AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip }) { Timeout = TimeSpan.FromSeconds(30) })
+                {
+                    string payPalApiUsername = configuration.GetValue("PayPalApiUsername");
+                    string payPalApiPassword = configuration.GetValue("PayPalApiPassword");
+                    string payPalApiSignature = configuration.GetValue("PayPalApiSignature");
+
+                    var soapEnvelopeXml = ConstructSoapEnvelope();
+                    var doc = XDocument.Parse(soapEnvelopeXml);
+
+                    var authHeader = doc.Descendants("{urn:ebay:apis:eBLBaseComponents}Credentials").FirstOrDefault();
+                    if (authHeader != null)
+                    {
+                        authHeader.Element("{urn:ebay:apis:eBLBaseComponents}Username").Value = payPalApiUsername;
+                        authHeader.Element("{urn:ebay:apis:eBLBaseComponents}Password").Value = payPalApiPassword;
+                        authHeader.Element("{urn:ebay:apis:eBLBaseComponents}Signature").Value = payPalApiSignature;
+                    }
+
+                    var parameterHeader = doc.Descendants("{urn:ebay:api:PayPalAPI}TransactionSearchRequest").FirstOrDefault();
+                    if (parameterHeader != null)
+                    {
+                        string startDate = string.Format("{0:yyyy-MM-ddTHH\\:mm\\:ssZ}", from);
+                        string endDate = string.Format("{0:yyyy-MM-ddTHH\\:mm\\:ssZ}", to.AddDays(1));
+
+                        parameterHeader.Element("{urn:ebay:api:PayPalAPI}StartDate").Value = startDate;
+                        parameterHeader.Element("{urn:ebay:api:PayPalAPI}EndDate").Value = endDate;
+                    }
+
+                    string envelope = doc.ToString();
+
+                    var request = CreateRequest(HttpMethod.Post, "https://api-3t.paypal.com/2.0/", "TransactionSearch", doc);
+                    request.Content = new StringContent(envelope, Encoding.UTF8, "text/xml");
+
+                    // request is now ready to be sent via HttpClient
+                    HttpResponseMessage response = httpClient.SendAsync(request).Result;
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new Exception();
+                    }
+
+                    Task<Stream> streamTask = response.Content.ReadAsStreamAsync();
+                    Stream stream = streamTask.Result;
+                    var sr = new StreamReader(stream);
+                    var soapResponse = XDocument.Load(sr);
+
+                    // parse SOAP response
+                    var xmlTransactions = soapResponse.Descendants("{urn:ebay:apis:eBLBaseComponents}PaymentTransactions").ToList();
+                    foreach (var xmlTransaction in xmlTransactions)
+                    {
+                        // build new list
+                        var payPalTransaction = new PayPalTransaction();
+
+                        //xmlTransaction.RemoveAttributes(); // trick to ignore ebl types that cannot be deserialized
+                        //var transaction = Utils.Deserialize<PaymentTransaction>(xmlTransaction.ToString());
+
+                        payPalTransaction.TransactionID = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}TransactionID").Value;
+
+                        // Converting from paypal date to date:
+                        // 2017-08-30T21:13:37Z
+                        // var date = DateTimeOffset.Parse(paypalTransaction.Timestamp).UtcDateTime;
+                        payPalTransaction.Timestamp = DateTimeOffset.Parse(xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}Timestamp").Value).UtcDateTime;
+
+                        payPalTransaction.Status = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}Status").Value;
+                        payPalTransaction.Type = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}Type").Value;
+
+                        payPalTransaction.GrossAmount = decimal.Parse(xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}GrossAmount").Value, CultureInfo.InvariantCulture);
+                        payPalTransaction.GrossAmountCurrencyId = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}GrossAmount").Attribute("currencyID").Value;
+                        payPalTransaction.NetAmount = decimal.Parse(xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}NetAmount").Value, CultureInfo.InvariantCulture);
+                        payPalTransaction.NetAmountCurrencyId = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}NetAmount").Attribute("currencyID").Value;
+                        payPalTransaction.FeeAmount = decimal.Parse(xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}FeeAmount").Value, CultureInfo.InvariantCulture);
+                        payPalTransaction.FeeAmountCurrencyId = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}FeeAmount").Attribute("currencyID").Value;
+
+                        if (null != xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}Payer"))
+                        {
+                            payPalTransaction.Payer = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}Payer").Value;
+                        }
+                        payPalTransaction.PayerDisplayName = xmlTransaction.Element("{urn:ebay:apis:eBLBaseComponents}PayerDisplayName").Value;
+
+                        payPalTransactions.Add(payPalTransaction);
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                Console.WriteLine("ERROR: Could not get paypal transactions! '{0}'", e.Message);
+            }
+
+            return payPalTransactions;
+        }
+
+        private static string ConstructSoapEnvelope()
+        {
+            var message = @"<?xml version='1.0' encoding='UTF-8'?>
+                            <soapenv:Envelope xmlns:soapenv='http://schemas.xmlsoap.org/soap/envelope/' xmlns:ns='urn:ebay:api:PayPalAPI' xmlns:ebl='urn:ebay:apis:eBLBaseComponents' xmlns:cc='urn:ebay:apis:CoreComponentTypes' xmlns:ed='urn:ebay:apis:EnhancedDataTypes'>
+                                <soapenv:Header>
+                                    <ns:RequesterCredentials>
+                                            <ebl:Credentials>
+                                                <ebl:Username></ebl:Username>
+                                                <ebl:Password></ebl:Password>
+                                                <ebl:Signature></ebl:Signature>
+                                            </ebl:Credentials>
+                                    </ns:RequesterCredentials>
+                                </soapenv:Header>
+                                <soapenv:Body>
+                                    <ns:TransactionSearchReq>
+                                        <ns:TransactionSearchRequest>
+                                                <ebl:Version>204.0</ebl:Version>
+                                                <ns:StartDate></ns:StartDate>
+                                                <ns:EndDate></ns:EndDate>
+                                        </ns:TransactionSearchRequest>
+                                    </ns:TransactionSearchReq>
+                                </soapenv:Body>
+                            </soapenv:Envelope>
+                            ";
+            return message;
+        }
+
+        private static HttpRequestMessage CreateRequest(HttpMethod method, string uri, string action, XDocument soapEnvelopeXml)
+        {
+            var request = new HttpRequestMessage(method: method, requestUri: uri);
+            request.Headers.Add("SOAPAction", action);
+            request.Headers.Add("ContentType", "text/xml;charset=\"utf-8\"");
+            request.Headers.Add("Accept", "text/xml");
+            request.Content = new StringContent(soapEnvelopeXml.ToString(), Encoding.UTF8, "text/xml"); ;
+            return request;
         }
 
         private static string GetAccessToken(IMyConfiguration configuration)
@@ -78,7 +218,7 @@ namespace AccountingServices
             return accessToken;
         }
 
-        private static void GetPayPalTransactionsList(IMyConfiguration configuration, DateTime from, DateTime to, List<PayPalTransaction> payPalTransactions)
+        private static void GetPayPalTransactionsListRest(IMyConfiguration configuration, DateTime from, DateTime to, List<PayPalTransaction> payPalTransactions)
         {
             try
             {
@@ -170,5 +310,39 @@ namespace AccountingServices
         public string token_type { get; set; }
         public string app_id { get; set; }
         public long expires_in { get; set; }
+    }
+
+    [XmlRoot(ElementName = "PaymentTransactions", Namespace = "urn:ebay:apis:eBLBaseComponents")]
+    public class PaymentTransaction
+    {
+        [XmlElement("Timestamp")]
+        public string Timestamp { get; set; }
+
+        [XmlElement("Timezone")]
+        public string Timezone { get; set; }
+
+        [XmlElement("Type")]
+        public string Type { get; set; }
+
+        [XmlElement("Payer")]
+        public string Payer { get; set; }
+
+        [XmlElement("PayerDisplayName")]
+        public string PayerDisplayName { get; set; }
+
+        [XmlElement("TransactionID")]
+        public string TransactionID { get; set; }
+
+        [XmlElement("Status")]
+        public string Status { get; set; }
+
+        [XmlElement("GrossAmount")]
+        public string GrossAmount { get; set; }
+
+        [XmlElement("FeeAmount")]
+        public string FeeAmount { get; set; }
+
+        [XmlElement("NetAmount")]
+        public string NetAmount { get; set; }
     }
 }

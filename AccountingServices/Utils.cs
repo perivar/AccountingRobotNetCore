@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml.Serialization;
 
 namespace AccountingServices
 {
@@ -121,6 +122,17 @@ namespace AccountingServices
                 start = chunkEnd;
             }
             yield return Tuple.Create(start, end);
+        }
+
+        public static T Deserialize<T>(string xmlStr)
+        {
+            var serializer = new XmlSerializer(typeof(T));
+            T result;
+            using (TextReader reader = new StringReader(xmlStr))
+            {
+                result = (T)serializer.Deserialize(reader);
+            }
+            return result;
         }
     }
 

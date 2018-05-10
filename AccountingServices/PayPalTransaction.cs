@@ -13,8 +13,11 @@ namespace AccountingServices
         public string Status { get; set; }
         public string Type { get; set; }
         public decimal GrossAmount { get; set; }
+        public string GrossAmountCurrencyId { get; set; }
         public decimal NetAmount { get; set; }
+        public string NetAmountCurrencyId { get; set; }
         public decimal FeeAmount { get; set; }
+        public string FeeAmountCurrencyId { get; set; }
         public string Payer { get; set; }
         public string PayerDisplayName { get; set; }
 
