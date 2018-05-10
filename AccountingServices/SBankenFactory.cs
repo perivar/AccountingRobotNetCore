@@ -150,13 +150,18 @@ namespace AccountingServices
 
             foreach (var transaction in jsonDe.items)
             {
-                var transactionId = transaction.transactionId;
+                //var transactionId = transaction.transactionId;
                 var amount = transaction.amount;
                 var text = transaction.text;
                 var transactionType = transaction.transactionType;
                 var transactionTypeText = transaction.transactionTypeText;
                 var accountingDate = transaction.accountingDate;
                 var interestDate = transaction.interestDate;
+
+                // Note, untill Sbanken fixed their unique transaction Id issue, generate one ourselves
+                string uniqueContent = $"{accountingDate}{interestDate}{text}{amount}";
+                string hashCode = String.Format("{0:X}", uniqueContent.GetHashCode());
+                var transactionId = hashCode;
 
                 var sBankenTransaction = new SBankenTransaction();
                 sBankenTransaction.TransactionDate = accountingDate;
@@ -206,7 +211,7 @@ namespace AccountingServices
                     sBankenTransaction.AccountingType = SBankenTransaction.AccountingTypeEnum.CostUnknown;
                 }
 
-                if (transactionId != null && transactionId > 0)
+                if (transactionId != null && transactionId != "")
                 {
                     sBankenTransactions.Add(sBankenTransaction);
                 }

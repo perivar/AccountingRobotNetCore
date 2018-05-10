@@ -195,7 +195,7 @@ namespace AccountingRobot
                     var accountingItem = new AccountingItem();
                     accountingItem.Date = ExcelUtils.GetExcelField<DateTime>(row, "Dato");
                     accountingItem.Number = ExcelUtils.GetExcelField<int>(row, "Bilagsnr.");
-                    accountingItem.ArchiveReference = ExcelUtils.GetExcelField<long>(row, "Arkivreferanse");
+                    accountingItem.ArchiveReference = ExcelUtils.GetExcelField<string>(row, "Arkivreferanse");
                     accountingItem.TransactionID = ExcelUtils.GetExcelField<string>(row, "TransaksjonsId");
                     accountingItem.Type = ExcelUtils.GetExcelField<string>(row, "Type");
                     accountingItem.AccountingType = ExcelUtils.GetExcelField<string>(row, "Regnskapstype");
@@ -392,7 +392,7 @@ namespace AccountingRobot
                     var accountingItem = new AccountingItem();
                     accountingItem.Date = ExcelUtils.GetExcelField<DateTime>(row, "Dato");
                     accountingItem.Number = ExcelUtils.GetExcelField<int>(row, "Bilagsnr.");
-                    accountingItem.ArchiveReference = ExcelUtils.GetExcelField<long>(row, "Arkivreferanse");
+                    accountingItem.ArchiveReference = ExcelUtils.GetExcelField<string>(row, "Arkivreferanse");
                     accountingItem.TransactionID = ExcelUtils.GetExcelField<string>(row, "TransaksjonsId");
                     accountingItem.Type = ExcelUtils.GetExcelField<string>(row, "Type");
                     accountingItem.AccountingType = ExcelUtils.GetExcelField<string>(row, "Regnskapstype");
@@ -1055,7 +1055,7 @@ namespace AccountingRobot
                 // define accounting item
                 var accountingItem = new AccountingItem();
                 accountingItem.Date = shopifyOrder.CreatedAt;
-                accountingItem.ArchiveReference = shopifyOrder.Id;
+                accountingItem.ArchiveReference = shopifyOrder.Id.ToString();
                 accountingItem.Type = string.Format("{0} {1}", shopifyOrder.FinancialStatus, shopifyOrder.FulfillmentStatus);
                 accountingItem.AccountingType = "SHOPIFY";
                 accountingItem.Text = string.Format("SALG {0} {1}", shopifyOrder.CustomerName, shopifyOrder.PaymentId);

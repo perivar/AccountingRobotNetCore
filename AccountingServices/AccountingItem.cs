@@ -9,7 +9,7 @@ namespace AccountingServices
         public DateTime Date { get; set; }
 
         public int Number { get; set; }
-        public long ArchiveReference { get; set; }
+        public string ArchiveReference { get; set; }
         public string TransactionID { get; set; }
         public string Type { get; set; } // Overføring (intern), Overførsel (ekstern), Visa, Avgift
         public string AccountingType { get; set; }
@@ -99,7 +99,7 @@ namespace AccountingServices
             unchecked
             {
                 var hashCode = 13;
-                hashCode = (hashCode * 397) ^ ArchiveReference.GetHashCode();
+                hashCode = (hashCode * 397) ^ (!string.IsNullOrEmpty(ArchiveReference) ? ArchiveReference.GetHashCode() : 0);
                 //hashCode = (hashCode * 397) ^ (!string.IsNullOrEmpty(TransactionID) ? TransactionID.GetHashCode() : 0);                
                 //hashCode = (hashCode * 397) ^ (!string.IsNullOrEmpty(Type) ? Type.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (!string.IsNullOrEmpty(Text) ? Text.GetHashCode() : 0);

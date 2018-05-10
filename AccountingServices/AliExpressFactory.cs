@@ -23,16 +23,11 @@ namespace AccountingServices
         }
 
         public override List<AliExpressOrder> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, FileDate lastCacheFileInfo, DateTime from, DateTime to)
-        {
-            string userDataDir = configuration.GetValue("UserDataDir");
-            string cacheDir = configuration.GetValue("CacheDir");
-            string aliExpressUsername = configuration.GetValue("AliExpressUsername");
-            string aliExpressPassword = configuration.GetValue("AliExpressPassword");
-        
+        {        
             // we have to combine two files:
             // the original cache file and the new transactions file
             Console.Out.WriteLine("Finding AliExpress Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            var newAliExpressOrders = AliExpress.ScrapeAliExpressOrders(userDataDir, aliExpressUsername, aliExpressPassword, from);
+            var newAliExpressOrders = AliExpress.ScrapeAliExpressOrders(configuration, from);
             var originalAliExpressOrders = Utils.ReadCacheFile<AliExpressOrder>(lastCacheFileInfo.FilePath);
 
             // copy all the original AliExpress orders into a new file, except entries that are 
@@ -47,13 +42,8 @@ namespace AccountingServices
 
         public override List<AliExpressOrder> GetList(IMyConfiguration configuration, DateTime from, DateTime to)
         {
-            string userDataDir = configuration.GetValue("UserDataDir");
-            string cacheDir = configuration.GetValue("CacheDir");
-            string aliExpressUsername = configuration.GetValue("AliExpressUsername");
-            string aliExpressPassword = configuration.GetValue("AliExpressPassword");
-
             Console.Out.WriteLine("Finding AliExpress Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            return AliExpress.ScrapeAliExpressOrders(userDataDir, aliExpressUsername, aliExpressPassword, from);
+            return AliExpress.ScrapeAliExpressOrders(configuration, from);
         }
     }
 }

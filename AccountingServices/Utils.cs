@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
@@ -133,6 +134,13 @@ namespace AccountingServices
                 result = (T)serializer.Deserialize(reader);
             }
             return result;
+        }
+
+        public static string GetFilePathRelativeToAssembly(string pathRelativeToAssembly) {
+            string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string filePathRelativeToAssembly = Path.Combine(assemblyPath, pathRelativeToAssembly);
+            string normalizedPath = Path.GetFullPath(filePathRelativeToAssembly);
+            return normalizedPath;
         }
     }
 

@@ -29,7 +29,10 @@ namespace AccountingServices
             options.AddArguments("--start-maximized");
             options.AddArgument("--log-level=3");
             //options.AddArgument("--headless");
-            IWebDriver driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options);
+
+            //string chromeDriverExePath = Utils.GetFilePathRelativeToAssembly(@"..\..\..\..\AccountingServices\bin\debug\netcoreapp2.0");
+            string chromeDriverExePath = configuration.GetValue("ChromeDriverExePath");
+            IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
 
             // https://app.oberlo.com/orders?from=2017-01-01&to=2017-12-31&page=1
             int page = 1;

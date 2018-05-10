@@ -14,8 +14,13 @@ namespace AccountingServices
 {
     public static class AliExpress
     {
-        public static List<AliExpressOrder> ScrapeAliExpressOrders(string userDataDir, string aliExpressUsername, string aliExpressPassword, DateTime from)
+        public static List<AliExpressOrder> ScrapeAliExpressOrders(IMyConfiguration configuration, DateTime from)
         {
+            string userDataDir = configuration.GetValue("UserDataDir");
+            string cacheDir = configuration.GetValue("CacheDir");
+            string aliExpressUsername = configuration.GetValue("AliExpressUsername");
+            string aliExpressPassword = configuration.GetValue("AliExpressPassword");
+
             var aliExpressOrders = new List<AliExpressOrder>();
 
             string userDataArgument = string.Format("user-data-dir={0}", userDataDir);
@@ -27,7 +32,9 @@ namespace AccountingServices
             options.AddArgument("--log-level=3");
             //options.AddArguments("--ignore-certificate-errors");
             //options.AddArguments("--ignore-ssl-errors");
-            IWebDriver driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options);
+
+            string chromeDriverExePath = configuration.GetValue("ChromeDriverExePath");
+            IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
 
             driver.Navigate().GoToUrl("https://login.aliexpress.com");
 

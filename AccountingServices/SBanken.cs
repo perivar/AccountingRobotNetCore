@@ -117,7 +117,7 @@ namespace AccountingServices
                 var skandiabankenTransaction = new SBankenTransaction();
                 skandiabankenTransaction.TransactionDate = row.Field(0).GetDateTime();
                 skandiabankenTransaction.InterestDate = row.Field(1).GetDateTime();
-                skandiabankenTransaction.ArchiveReference = row.Field(2).GetValue<long>();
+                skandiabankenTransaction.ArchiveReference = row.Field(2).GetString();
                 skandiabankenTransaction.Type = row.Field(3).GetString();
                 skandiabankenTransaction.Text = row.Field(4).GetString();
                 skandiabankenTransaction.OutAccount = row.Field(5).GetValue<decimal>();
@@ -182,7 +182,9 @@ namespace AccountingServices
             options.AddArguments(userDataArgument);
             options.AddArguments("--start-maximized");
             options.AddArgument("--log-level=3");
-            IWebDriver driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options);
+            
+            string chromeDriverExePath = configuration.GetValue("ChromeDriverExePath");
+            IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
 
             driver.Navigate().GoToUrl("https://secure.sbanken.no/Authentication/BankIdMobile");
 

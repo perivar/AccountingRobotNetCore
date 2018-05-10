@@ -32,7 +32,7 @@ namespace AccountingServices
 
         public DateTime TransactionDate { get; set; }
         public DateTime InterestDate { get; set; }
-        public long ArchiveReference { get; set; }
+        public string ArchiveReference { get; set; }
         public string Type { get; set; } // Overføring (intern), Overførsel (ekstern), Visa, Avgift
         public string Text { get; set; }
         public decimal OutAccount { get; set; }
