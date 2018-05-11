@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using IdentityModel.Client;
 using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json;
 using System.Globalization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
 
 namespace AccountingServices
 {
@@ -150,7 +152,6 @@ namespace AccountingServices
 
             foreach (var transaction in jsonDe.items)
             {
-                //var transactionId = transaction.transactionId;
                 var amount = transaction.amount;
                 var text = transaction.text;
                 var transactionType = transaction.transactionType;
@@ -158,10 +159,15 @@ namespace AccountingServices
                 var accountingDate = transaction.accountingDate;
                 var interestDate = transaction.interestDate;
 
+                var transactionId = transaction.transactionId;
                 // Note, untill Sbanken fixed their unique transaction Id issue, generate one ourselves
-                string uniqueContent = $"{accountingDate}{interestDate}{text}{amount}";
-                string hashCode = String.Format("{0:X}", uniqueContent.GetHashCode());
-                var transactionId = hashCode;
+                if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
+                {
+                    string uniqueContent = $"{accountingDate}{interestDate}{text}{amount}";
+                    uniqueContent = Regex.Replace(uniqueContent, @"\s+", "");
+                    string hashCode = String.Format("{0:X}", uniqueContent.GetHashCode());
+                    transactionId = hashCode;
+                }
 
                 var sBankenTransaction = new SBankenTransaction();
                 sBankenTransaction.TransactionDate = accountingDate;
