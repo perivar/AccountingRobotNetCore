@@ -163,9 +163,7 @@ namespace AccountingServices
                 // Note, untill Sbanken fixed their unique transaction Id issue, generate one ourselves
                 if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
                 {
-                    string uniqueContent = $"{accountingDate}{interestDate}{text}{amount}";
-                    uniqueContent = Regex.Replace(uniqueContent, @"\s+", "");
-                    //string hashCode = String.Format("{0:X}", uniqueContent.GetHashCode());
+                    string uniqueContent = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
                     string hashCode = Utils.CreateMD5(uniqueContent);
                     transactionId = hashCode;
                 }
