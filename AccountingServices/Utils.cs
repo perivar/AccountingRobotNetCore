@@ -8,6 +8,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
@@ -145,14 +147,16 @@ namespace AccountingServices
         /// </summary>
         /// <param name="pathRelativeToAssembly">relative path</param>
         /// <returns>the full path relative to the assembly</returns>
-        public static string GetFilePathRelativeToAssembly(string pathRelativeToAssembly) {
+        public static string GetFilePathRelativeToAssembly(string pathRelativeToAssembly)
+        {
             string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             string filePathRelativeToAssembly = Path.Combine(assemblyPath, pathRelativeToAssembly);
             string normalizedPath = Path.GetFullPath(filePathRelativeToAssembly);
             return normalizedPath;
         }
 
-        public static IWebDriver GetChromeWebDriver(string userDataDir, string chromeDriverExePath) {
+        public static IWebDriver GetChromeWebDriver(string userDataDir, string chromeDriverExePath)
+        {
 
             // workaroud to too a bug in dot net core that makes findelement so slow
             // https://github.com/SeleniumHQ/selenium/issues/4988
@@ -180,6 +184,24 @@ namespace AccountingServices
             //IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
             IWebDriver driver = new RemoteWebDriver(new Uri("http://127.0.0.1:5555"), options);
             return driver;
+        }
+
+        public static string CreateMD5(string input)
+        {
+            // byte array representation of that string
+            byte[] inputBytes = new UTF8Encoding().GetBytes(input);
+
+            // need MD5 to calculate the hash
+            byte[] hash = ((HashAlgorithm)CryptoConfig.CreateFromName("MD5")).ComputeHash(inputBytes);
+
+            // string representation (similar to UNIX format)
+            string encoded = BitConverter.ToString(hash)
+               // without dashes
+               .Replace("-", string.Empty)
+               // make lowercase
+               .ToLower();
+
+            return encoded;
         }
     }
 

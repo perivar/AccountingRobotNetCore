@@ -165,7 +165,8 @@ namespace AccountingServices
                 {
                     string uniqueContent = $"{accountingDate}{interestDate}{text}{amount}";
                     uniqueContent = Regex.Replace(uniqueContent, @"\s+", "");
-                    string hashCode = String.Format("{0:X}", uniqueContent.GetHashCode());
+                    //string hashCode = String.Format("{0:X}", uniqueContent.GetHashCode());
+                    string hashCode = Utils.CreateMD5(uniqueContent);
                     transactionId = hashCode;
                 }
 
