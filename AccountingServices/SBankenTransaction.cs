@@ -313,7 +313,8 @@ namespace AccountingServices
 
                 if (vendor.CaseInsensitiveContains("Wazalo")
                     || vendor.CaseInsensitiveContains("Shopifycomc")
-                    || vendor.CaseInsensitiveContains("SHOPIFY.COM/C"))
+                    || vendor.CaseInsensitiveContains("SHOPIFY.COM/C")
+                    || vendor.CaseInsensitiveContains("SHOPIFY"))
                 {
                     this.AccountingType = AccountingTypeEnum.CostOfWebShop;
                 }
@@ -378,7 +379,11 @@ namespace AccountingServices
             // if neither match for purchase or transfer
             if (AccountChange > 0)
             {
-                this.AccountingType = AccountingTypeEnum.IncomeUnknown;
+                if (Text.CaseInsensitiveContains("STRIPE PAYMENTS UK LTD")) {
+                    this.AccountingType = AccountingTypeEnum.TransferStripe;
+                } else {
+                    this.AccountingType = AccountingTypeEnum.IncomeUnknown;
+                }
             }
             else
             {

@@ -803,19 +803,19 @@ namespace AccountingRobot
                     skandiabankenTransaction.TransactionDate.Day,
                     23, 59, 00);
 
+                accountingItem.ArchiveReference = skandiabankenTransaction.ArchiveReference;
+
+                if (accountingItem.ArchiveReference.Equals("0512dd0351adabc9dae5971ad041cc66"))
+                {
+                    // breakpoint here
+                }
+
                 // extract properties from the transaction text
                 //skandiabankenTransaction.ExtractAccountingInformation();
                 skandiabankenTransaction.ExtractAccountingInformationAPI();
                 var accountingType = skandiabankenTransaction.AccountingType;
                 accountingItem.AccountingType = skandiabankenTransaction.GetAccountingTypeString();
-
-                accountingItem.ArchiveReference = skandiabankenTransaction.ArchiveReference;
                 accountingItem.Type = skandiabankenTransaction.Type;
-
-                if (accountingItem.ArchiveReference.Equals("906e325772def596fb76743288bcbba1"))
-                {
-                    // breakpoint here
-                }
 
                 // 1. If purchase or return from purchase 
                 if (skandiabankenTransaction.Type.Equals("VISA VARE") && (
