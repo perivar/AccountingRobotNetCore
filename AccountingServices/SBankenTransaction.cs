@@ -27,8 +27,14 @@ namespace AccountingServices
             IncomeInterest
         };
 
+        // match e.g. *2591 29.04 NOK 159.66 PAYPAL *WANGFENG Kurs: 1.0000
         private static Regex purchasePattern = new Regex(@"(\*\d{4})\s(\d+\.\d+)\s(\w+)\s(\d+\.\d+)\s([\w\.\*\s]+)\s(Kurs\:)\s(\d+\.\d+)", RegexOptions.Compiled);
+
+        // match e.g. Fra: The Currency Cloud Ltd Betalt: 24.08.17
         private static Regex transferPattern = new Regex(@"Fra\:\s([\w\s]+)\sBetalt\:\s(\d+\.\d+.\d+)", RegexOptions.Compiled);
+
+        // match e.g. STRIPE PAYMENTS UK LTD             NOK             874,45
+        private static Regex transferPattern2 = new Regex(@"([\w\s]+)\s+(\w{3})\s+(\d+[\.,]\d+)", RegexOptions.Compiled);
 
         public DateTime TransactionDate { get; set; }
         public DateTime InterestDate { get; set; }
@@ -284,26 +290,42 @@ namespace AccountingServices
             if (Type.Equals("KREDITRTE"))
             {
                 this.AccountingType = AccountingTypeEnum.IncomeInterest;
-                //this.Type = "Kreditrente";
                 return;
             }
             else if (Type.Equals("GEBYR"))
             {
                 this.AccountingType = AccountingTypeEnum.CostOfBank;
-                //this.Type = "Avgift";
                 return;
             }
             else if (Type.Equals("NETTGIRO"))
             {
                 this.AccountingType = AccountingTypeEnum.CostOfInvoice;
-                //this.Type = "Giro m/ KID";
                 return;
             }
             else if (Type.Equals("OVFNETTB"))
             {
                 this.AccountingType = AccountingTypeEnum.TransferUnknown;
-                //this.Type = "Overføring Nettbank";
                 return;
+            }
+            else if (Type.Equals("OVERFØRT"))
+            {
+                // check for transfer patterns
+                var matchTransfer2 = transferPattern2.Match(Text);
+                if (matchTransfer2.Success)
+                {
+                    var vendor = matchTransfer2.Groups[1].Value.ToString().Trim();
+                    var currency = matchTransfer2.Groups[2].Value.ToString();
+                    var amount = matchTransfer2.Groups[3].Value.ToString();
+
+                    // store properties                    
+                    bool isNorwegian = (amount.Contains(",") ? true : false); 
+                    ExternalPurchaseAmount = ExcelUtils.GetDecimalFromExcelCurrencyString(amount, isNorwegian);
+                    ExternalPurchaseCurrency = currency;
+                    ExternalPurchaseVendor = vendor;
+                    AccountingType = AccountingTypeEnum.TransferStripe;
+                    ExternalPurchaseDate = TransactionDate;
+                    return;
+                }
             }
 
             // check if it is a purchase or return
@@ -331,6 +353,10 @@ namespace AccountingServices
                     this.AccountingType = AccountingTypeEnum.CostOfServer;
                 }
                 else if (vendor.CaseInsensitiveContains("AliExpress"))
+                {
+                    this.AccountingType = AccountingTypeEnum.CostOfGoods;
+                }
+                else if (vendor.CaseInsensitiveContains("PayPal"))
                 {
                     this.AccountingType = AccountingTypeEnum.CostOfGoods;
                 }

@@ -32,10 +32,16 @@ namespace AccountingServices
         /// </summary>
         /// <param name="currencyString">currency string like 133.3</param>
         /// <returns>decimal like 133.3</returns>
-        public static decimal GetDecimalFromExcelCurrencyString(string currencyString)
+        public static decimal GetDecimalFromExcelCurrencyString(string currencyString, bool isNorwegian = false)
         {
-            //return Convert.ToDecimal(currencyString, CultureInfo.GetCultureInfo("no"));
-            return Convert.ToDecimal(currencyString, CultureInfo.InvariantCulture);
+            if (isNorwegian)
+            {
+                return Convert.ToDecimal(currencyString, CultureInfo.GetCultureInfo("no"));
+            }
+            else
+            {
+                return Convert.ToDecimal(currencyString, CultureInfo.InvariantCulture);
+            }
         }
 
         public static DateTime GetDateFromBankStatementString(string bankeStatementString)

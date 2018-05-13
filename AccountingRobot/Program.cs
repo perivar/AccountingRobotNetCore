@@ -805,13 +805,12 @@ namespace AccountingRobot
 
                 accountingItem.ArchiveReference = skandiabankenTransaction.ArchiveReference;
 
-                if (accountingItem.ArchiveReference.Equals("0512dd0351adabc9dae5971ad041cc66"))
+                if (accountingItem.ArchiveReference.Equals("f82118abb1cc9a40fd3e0f5a1d101cc5"))
                 {
                     // breakpoint here
                 }
 
                 // extract properties from the transaction text
-                //skandiabankenTransaction.ExtractAccountingInformation();
                 skandiabankenTransaction.ExtractAccountingInformationAPI();
                 var accountingType = skandiabankenTransaction.AccountingType;
                 accountingItem.AccountingType = skandiabankenTransaction.GetAccountingTypeString();
@@ -845,7 +844,7 @@ namespace AccountingRobot
                     }
                 }
 
-                // 1. If AliExpress purchase
+                // 1. If AliExpress or PayPal purchase
                 else if (skandiabankenTransaction.Type.Equals("VISA VARE") &&
                     accountingType == SBankenTransaction.AccountingTypeEnum.CostOfGoods)
                 {
@@ -856,7 +855,10 @@ namespace AccountingRobot
                     accountingItem.AccountBank = skandiabankenTransaction.AccountChange;
                     accountingItem.CostForReselling = -skandiabankenTransaction.AccountChange;
 
-                    FindAliExpressOrderNumber(usedOrderNumbers, aliExpressOrderGroups, oberloOrders, skandiabankenTransaction, accountingItem);
+                    if (skandiabankenTransaction.ExternalPurchaseVendor.CaseInsensitiveContains("AliExpress"))
+                    {
+                        FindAliExpressOrderNumber(usedOrderNumbers, aliExpressOrderGroups, oberloOrders, skandiabankenTransaction, accountingItem);
+                    }
                 }
 
                 // 2. Transfer Paypal
