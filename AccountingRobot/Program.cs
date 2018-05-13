@@ -7,6 +7,7 @@ using System.Data;
 using System.IO;
 using System.Globalization;
 using AccountingServices;
+using System.Text.RegularExpressions;
 
 namespace AccountingRobot
 {
@@ -811,7 +812,7 @@ namespace AccountingRobot
                 accountingItem.ArchiveReference = skandiabankenTransaction.ArchiveReference;
                 accountingItem.Type = skandiabankenTransaction.Type;
 
-                if (accountingItem.ArchiveReference.Equals("50975003532"))
+                if (accountingItem.ArchiveReference.Equals("906e325772def596fb76743288bcbba1"))
                 {
                     // breakpoint here
                 }
@@ -980,6 +981,19 @@ namespace AccountingRobot
                 else
                 {
                     Console.WriteLine("{0}", skandiabankenTransaction);
+
+                    // if the text contains an USD pattern, use it
+                    Regex usdPattern = new Regex(@"USD\s+(\d+(\.\d+)?)", RegexOptions.Compiled);
+                    var matchUSD = usdPattern.Match(skandiabankenTransaction.Text);
+                    if (matchUSD.Success)
+                    {
+                        var purchaseOtherCurrencyString = matchUSD.Groups[1].Value.ToString();
+                        decimal purchaseOtherCurrency;
+                        decimal.TryParse(purchaseOtherCurrencyString, NumberStyles.Currency, CultureInfo.InvariantCulture, out purchaseOtherCurrency);
+                        accountingItem.PurchaseOtherCurrency = purchaseOtherCurrency;
+                        accountingItem.OtherCurrency = "USD";
+                    }
+
                     accountingItem.Text = string.Format("{0}", skandiabankenTransaction.Text);
                     accountingItem.AccountBank = skandiabankenTransaction.AccountChange;
 
