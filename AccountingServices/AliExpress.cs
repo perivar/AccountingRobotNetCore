@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Linq;
 using System.IO;
 using System.Reflection;
+using OpenQA.Selenium.Remote;
 
 namespace AccountingServices
 {
@@ -20,21 +21,12 @@ namespace AccountingServices
             string cacheDir = configuration.GetValue("CacheDir");
             string aliExpressUsername = configuration.GetValue("AliExpressUsername");
             string aliExpressPassword = configuration.GetValue("AliExpressPassword");
+            string chromeDriverExePath = configuration.GetValue("ChromeDriverExePath");
 
             var aliExpressOrders = new List<AliExpressOrder>();
 
-            string userDataArgument = string.Format("user-data-dir={0}", userDataDir);
-
             // http://blog.hanxiaogang.com/2017-07-29-aliexpress/
-            ChromeOptions options = new ChromeOptions();
-            options.AddArguments(userDataArgument);
-            options.AddArguments("--start-maximized");
-            options.AddArgument("--log-level=3");
-            //options.AddArguments("--ignore-certificate-errors");
-            //options.AddArguments("--ignore-ssl-errors");
-
-            string chromeDriverExePath = configuration.GetValue("ChromeDriverExePath");
-            IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
+            var driver = Utils.GetChromeWebDriver(userDataDir, chromeDriverExePath);
 
             driver.Navigate().GoToUrl("https://login.aliexpress.com");
 
@@ -210,19 +202,19 @@ namespace AccountingServices
             // https://trade.aliexpress.com/order_detail.htm?orderId=81495464493633
 
             // open a new tab and set the context
-            var chromeDriver = (ChromeDriver)driver;
+            var remoteWebDriver = (RemoteWebDriver)driver;
 
             // save a reference to our original tab's window handle
-            var originalTabInstance = chromeDriver.CurrentWindowHandle;
+            var originalTabInstance = remoteWebDriver.CurrentWindowHandle;
 
             // execute some JavaScript to open a new window
-            chromeDriver.ExecuteScript("window.open();");
+            remoteWebDriver.ExecuteScript("window.open();");
 
             // save a reference to our new tab's window handle, this would be the last entry in the WindowHandles collection
-            var newTabInstance = chromeDriver.WindowHandles[driver.WindowHandles.Count - 1];
+            var newTabInstance = remoteWebDriver.WindowHandles[driver.WindowHandles.Count - 1];
 
             // switch our WebDriver to the new tab's window handle
-            chromeDriver.SwitchTo().Window(newTabInstance);
+            remoteWebDriver.SwitchTo().Window(newTabInstance);
 
             // lets navigate to a web site in our new tab
             string url = String.Format("https://trade.aliexpress.com/order_detail.htm?orderId={0}", orderId);
@@ -247,13 +239,13 @@ namespace AccountingServices
             aliExpressOrder.ContactZipCode = contactZipCode;
 
             // now lets close our new tab
-            chromeDriver.ExecuteScript("window.close();");
+            remoteWebDriver.ExecuteScript("window.close();");
 
             // and switch our WebDriver back to the original tab's window handle
-            chromeDriver.SwitchTo().Window(originalTabInstance);
+            remoteWebDriver.SwitchTo().Window(originalTabInstance);
 
             // and have our WebDriver focus on the main document in the page to send commands to 
-            chromeDriver.SwitchTo().DefaultContent();
+            remoteWebDriver.SwitchTo().DefaultContent();
         }
 
         static Tuple<int, int> GetAliExpressOrderPageNumber(IWebDriver driver)

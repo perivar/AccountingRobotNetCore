@@ -174,17 +174,9 @@ namespace AccountingServices
             string cacheFileNamePrefix = configuration.GetValue("SBankenAccountNumber");
             string sbankenAccountId = configuration.GetValue("SBankenAccountId");
             string downloadFolderPath = Environment.GetEnvironmentVariable("USERPROFILE") + @"\Downloads\";
-
-            string userDataArgument = string.Format("user-data-dir={0}", userDataDir);
-
-            // http://blog.hanxiaogang.com/2017-07-29-aliexpress/
-            ChromeOptions options = new ChromeOptions();
-            options.AddArguments(userDataArgument);
-            options.AddArguments("--start-maximized");
-            options.AddArgument("--log-level=3");
-            
             string chromeDriverExePath = configuration.GetValue("ChromeDriverExePath");
-            IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
+
+            var driver = Utils.GetChromeWebDriver(userDataDir, chromeDriverExePath);
 
             driver.Navigate().GoToUrl("https://secure.sbanken.no/Authentication/BankIdMobile");
 

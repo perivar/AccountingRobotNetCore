@@ -142,7 +142,7 @@ namespace AccountingServices
             // retrieve the customer's transactions
             // RFC3339 / ISO8601 with 3 decimal places
             // yyyy-MM-ddTHH:mm:ss.fffK            
-            string querySuffix = string.Format(CultureInfo.InvariantCulture, "?startDate={0:yyyy-MM-ddTHH:mm:ss.fffK}&endDate={1:yyyy-MM-ddTHH:mm:ss.fffK}", from, to);
+            string querySuffix = string.Format(CultureInfo.InvariantCulture, "?length=1000&startDate={0:yyyy-MM-ddTHH:mm:ss.fffK}&endDate={1:yyyy-MM-ddTHH:mm:ss.fffK}", from, to);
             //var transactionResponse = await httpClient.GetAsync($"{bankBasePath}/api/v1/Transactions/{customerId}/{accountNumber}{querySuffix}");
             var transactionResponse = await httpClient.GetAsync($"{bankBasePath}/api/v2/Transactions/{customerId}/{accountNumber}{querySuffix}");
             var transactionResult = await transactionResponse.Content.ReadAsStringAsync();

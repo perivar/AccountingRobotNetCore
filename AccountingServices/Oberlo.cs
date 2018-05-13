@@ -22,17 +22,9 @@ namespace AccountingServices
             string userDataDir = configuration.GetValue("UserDataDir");
             string oberloUsername = configuration.GetValue("OberloUsername");
             string oberloPassword = configuration.GetValue("OberloPassword");
-
-            ChromeOptions options = new ChromeOptions();
-            string userDataArgument = string.Format("user-data-dir={0}", userDataDir);
-            options.AddArguments(userDataArgument);
-            options.AddArguments("--start-maximized");
-            options.AddArgument("--log-level=3");
-            //options.AddArgument("--headless");
-
-            //string chromeDriverExePath = Utils.GetFilePathRelativeToAssembly(@"..\..\..\..\AccountingServices\bin\debug\netcoreapp2.0");
             string chromeDriverExePath = configuration.GetValue("ChromeDriverExePath");
-            IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
+            
+            var driver = Utils.GetChromeWebDriver(userDataDir, chromeDriverExePath);
 
             // https://app.oberlo.com/orders?from=2017-01-01&to=2017-12-31&page=1
             int page = 1;

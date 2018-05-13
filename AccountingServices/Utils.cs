@@ -1,4 +1,7 @@
 ﻿using CsvHelper;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Remote;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -136,11 +139,47 @@ namespace AccountingServices
             return result;
         }
 
+        /// <summary>
+        /// Find the path relative to the running assembly
+        /// Use like this Utils.GetFilePathRelativeToAssembly(@"..\..\..\..\AccountingServices\bin\debug\netcoreapp2.0");
+        /// </summary>
+        /// <param name="pathRelativeToAssembly">relative path</param>
+        /// <returns>the full path relative to the assembly</returns>
         public static string GetFilePathRelativeToAssembly(string pathRelativeToAssembly) {
             string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             string filePathRelativeToAssembly = Path.Combine(assemblyPath, pathRelativeToAssembly);
             string normalizedPath = Path.GetFullPath(filePathRelativeToAssembly);
             return normalizedPath;
+        }
+
+        public static IWebDriver GetChromeWebDriver(string userDataDir, string chromeDriverExePath) {
+
+            // workaroud to too a bug in dot net core that makes findelement so slow
+            // https://github.com/SeleniumHQ/selenium/issues/4988
+            // change the chrome driver to run on another port and 127.0.0.1 instead of localhost
+
+            // add chromedriver to the PATH
+            var chromeDriverDirectory = new FileInfo(chromeDriverExePath).FullName;
+            string pathEnv = Environment.GetEnvironmentVariable("PATH");
+            pathEnv += ";" + chromeDriverDirectory;
+            Environment.SetEnvironmentVariable("PATH", pathEnv);
+
+            ChromeDriverService service = ChromeDriverService.CreateDefaultService();
+            service.Port = 5555; // Any port value.
+            service.Start();
+
+            ChromeOptions options = new ChromeOptions();
+            string userDataArgument = string.Format("user-data-dir={0}", userDataDir);
+            options.AddArguments(userDataArgument);
+            options.AddArguments("--start-maximized");
+            options.AddArgument("--log-level=3");
+            //options.AddArguments("--ignore-certificate-errors");
+            //options.AddArguments("--ignore-ssl-errors");
+            //options.AddArgument("--headless");
+
+            //IWebDriver driver = new ChromeDriver(chromeDriverExePath, options);
+            IWebDriver driver = new RemoteWebDriver(new Uri("http://127.0.0.1:5555"), options);
+            return driver;
         }
     }
 
