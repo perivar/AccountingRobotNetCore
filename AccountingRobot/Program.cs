@@ -117,35 +117,36 @@ namespace AccountingRobot
                 ws.Cell(1, 19).Value = "1914";
                 ws.Cell(1, 20).Value = "1920";
 
-                ws.Cell(1, 23).Value = "3000";
-                ws.Cell(1, 24).Value = "3100";
-                ws.Cell(1, 25).Value = "4005";
-                ws.Cell(1, 26).Value = "4300";
-                ws.Cell(1, 27).Value = "5000";
-                ws.Cell(1, 28).Value = "5400";
-                ws.Cell(1, 29).Value = "6000";
-                ws.Cell(1, 30).Value = "6100";
-                ws.Cell(1, 31).Value = "6340";
-                ws.Cell(1, 32).Value = "6500";
-                ws.Cell(1, 33).Value = "6695";
-                ws.Cell(1, 34).Value = "6800";
-                ws.Cell(1, 35).Value = "6810";
-                ws.Cell(1, 36).Value = "6900";
-                ws.Cell(1, 37).Value = "7098";
-                ws.Cell(1, 38).Value = "7140";
-                ws.Cell(1, 39).Value = "7330";
-                ws.Cell(1, 40).Value = "7700";
-                ws.Cell(1, 41).Value = "7770";
-                ws.Cell(1, 42).Value = "7780";
-                ws.Cell(1, 43).Value = "7785";
-                ws.Cell(1, 44).Value = "7790";
-                ws.Cell(1, 45).Value = "8099";
-                ws.Cell(1, 46).Value = "8199";
-                ws.Cell(1, 47).Value = "1200";
-                ws.Cell(1, 48).Value = "1500";
+                ws.Cell(1, 23).Value = "2740";
+                ws.Cell(1, 24).Value = "3000";
+                ws.Cell(1, 25).Value = "3100";
+                ws.Cell(1, 26).Value = "4005";
+                ws.Cell(1, 27).Value = "4300";
+                ws.Cell(1, 28).Value = "5000";
+                ws.Cell(1, 29).Value = "5400";
+                ws.Cell(1, 30).Value = "6000";
+                ws.Cell(1, 31).Value = "6100";
+                ws.Cell(1, 32).Value = "6340";
+                ws.Cell(1, 33).Value = "6500";
+                ws.Cell(1, 34).Value = "6695";
+                ws.Cell(1, 35).Value = "6800";
+                ws.Cell(1, 36).Value = "6810";
+                ws.Cell(1, 37).Value = "6900";
+                ws.Cell(1, 38).Value = "7098";
+                ws.Cell(1, 39).Value = "7140";
+                ws.Cell(1, 40).Value = "7330";
+                ws.Cell(1, 41).Value = "7700";
+                ws.Cell(1, 42).Value = "7770";
+                ws.Cell(1, 43).Value = "7780";
+                ws.Cell(1, 44).Value = "7785";
+                ws.Cell(1, 45).Value = "7790";
+                ws.Cell(1, 46).Value = "8099";
+                ws.Cell(1, 47).Value = "8199";
+                ws.Cell(1, 48).Value = "1200";
+                ws.Cell(1, 49).Value = "1500";
 
                 // set font color for header range
-                var headerRange = ws.Range("A1:AZ1");
+                var headerRange = ws.Range("A1:BA1");
                 headerRange.Style.Font.FontColor = XLColor.White;
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
@@ -216,7 +217,8 @@ namespace AccountingRobot
 
                     accountingItem.VATPurchase = ExcelUtils.GetExcelField<decimal>(row, "MVA Kjøp");
                     accountingItem.VATSales = ExcelUtils.GetExcelField<decimal>(row, "MVA Salg");
-
+                    
+                    accountingItem.VATSettlementAccount = ExcelUtils.GetExcelField<decimal>(row, "Oppgjørskonto mva");
                     accountingItem.SalesVAT = ExcelUtils.GetExcelField<decimal>(row, "Salg mva-pliktig");	// 3000
                     accountingItem.SalesVATExempt = ExcelUtils.GetExcelField<decimal>(row, "Salg avgiftsfritt");	// 3100
 
@@ -317,41 +319,42 @@ namespace AccountingRobot
 
                         newRow.Cell(21).Value = newAccountingElements[newRowCounter].VATPurchase;
                         newRow.Cell(22).Value = newAccountingElements[newRowCounter].VATSales;
+                        
+                        newRow.Cell(23).Value = newAccountingElements[newRowCounter].VATSettlementAccount;        // 2740                        
+                        newRow.Cell(24).Value = newAccountingElements[newRowCounter].SalesVAT;                    // 3000
+                        newRow.Cell(25).Value = newAccountingElements[newRowCounter].SalesVATExempt;              // 3100
 
-                        newRow.Cell(23).Value = newAccountingElements[newRowCounter].SalesVAT;                    // 3000
-                        newRow.Cell(24).Value = newAccountingElements[newRowCounter].SalesVATExempt;              // 3100
+                        newRow.Cell(26).Value = newAccountingElements[newRowCounter].CostOfGoods;                 // 4005
+                        newRow.Cell(27).Value = newAccountingElements[newRowCounter].CostForReselling;            // 4300
+                        newRow.Cell(28).Value = newAccountingElements[newRowCounter].CostForSalary;               // 5000
+                        newRow.Cell(29).Value = newAccountingElements[newRowCounter].CostForSalaryTax;            // 5400
+                        newRow.Cell(30).Value = newAccountingElements[newRowCounter].CostForDepreciation;         // 6000
+                        newRow.Cell(31).Value = newAccountingElements[newRowCounter].CostForShipping;             // 6100
+                        newRow.Cell(32).Value = newAccountingElements[newRowCounter].CostForElectricity;          // 6340 
+                        newRow.Cell(33).Value = newAccountingElements[newRowCounter].CostForToolsInventory;       // 6500
+                        newRow.Cell(34).Value = newAccountingElements[newRowCounter].CostForMaintenance;          // 6695
+                        newRow.Cell(35).Value = newAccountingElements[newRowCounter].CostForFacilities;           // 6800 
 
-                        newRow.Cell(25).Value = newAccountingElements[newRowCounter].CostOfGoods;                 // 4005
-                        newRow.Cell(26).Value = newAccountingElements[newRowCounter].CostForReselling;            // 4300
-                        newRow.Cell(27).Value = newAccountingElements[newRowCounter].CostForSalary;               // 5000
-                        newRow.Cell(28).Value = newAccountingElements[newRowCounter].CostForSalaryTax;            // 5400
-                        newRow.Cell(29).Value = newAccountingElements[newRowCounter].CostForDepreciation;         // 6000
-                        newRow.Cell(30).Value = newAccountingElements[newRowCounter].CostForShipping;             // 6100
-                        newRow.Cell(31).Value = newAccountingElements[newRowCounter].CostForElectricity;          // 6340 
-                        newRow.Cell(32).Value = newAccountingElements[newRowCounter].CostForToolsInventory;       // 6500
-                        newRow.Cell(33).Value = newAccountingElements[newRowCounter].CostForMaintenance;          // 6695
-                        newRow.Cell(34).Value = newAccountingElements[newRowCounter].CostForFacilities;           // 6800 
+                        newRow.Cell(36).Value = newAccountingElements[newRowCounter].CostOfData;                  // 6810 
+                        newRow.Cell(37).Value = newAccountingElements[newRowCounter].CostOfPhoneInternetUse;      // 6900
+                        newRow.Cell(38).Value = newAccountingElements[newRowCounter].PrivateUseOfECom;            // 7098
+                        newRow.Cell(39).Value = newAccountingElements[newRowCounter].CostForTravelAndAllowance;   // 7140
+                        newRow.Cell(40).Value = newAccountingElements[newRowCounter].CostOfAdvertising;           // 7330
+                        newRow.Cell(41).Value = newAccountingElements[newRowCounter].CostOfOther;                 // 7700
 
-                        newRow.Cell(35).Value = newAccountingElements[newRowCounter].CostOfData;                  // 6810 
-                        newRow.Cell(36).Value = newAccountingElements[newRowCounter].CostOfPhoneInternetUse;      // 6900
-                        newRow.Cell(37).Value = newAccountingElements[newRowCounter].PrivateUseOfECom;            // 7098
-                        newRow.Cell(38).Value = newAccountingElements[newRowCounter].CostForTravelAndAllowance;   // 7140
-                        newRow.Cell(39).Value = newAccountingElements[newRowCounter].CostOfAdvertising;           // 7330
-                        newRow.Cell(40).Value = newAccountingElements[newRowCounter].CostOfOther;                 // 7700
+                        newRow.Cell(42).Value = newAccountingElements[newRowCounter].FeesBank;                    // 7770
+                        newRow.Cell(43).Value = newAccountingElements[newRowCounter].FeesPaypal;                  // 7780
+                        newRow.Cell(44).Value = newAccountingElements[newRowCounter].FeesStripe;                  // 7785 
 
-                        newRow.Cell(41).Value = newAccountingElements[newRowCounter].FeesBank;                    // 7770
-                        newRow.Cell(42).Value = newAccountingElements[newRowCounter].FeesPaypal;                  // 7780
-                        newRow.Cell(43).Value = newAccountingElements[newRowCounter].FeesStripe;                  // 7785 
+                        newRow.Cell(45).Value = newAccountingElements[newRowCounter].CostForEstablishment;        // 7790
 
-                        newRow.Cell(44).Value = newAccountingElements[newRowCounter].CostForEstablishment;        // 7790
+                        newRow.Cell(46).Value = newAccountingElements[newRowCounter].IncomeFinance;               // 8099
+                        newRow.Cell(47).Value = newAccountingElements[newRowCounter].CostOfFinance;               // 8199
 
-                        newRow.Cell(45).Value = newAccountingElements[newRowCounter].IncomeFinance;               // 8099
-                        newRow.Cell(46).Value = newAccountingElements[newRowCounter].CostOfFinance;               // 8199
-
-                        newRow.Cell(47).Value = newAccountingElements[newRowCounter].Investments;                 // 1200
-                        newRow.Cell(48).Value = newAccountingElements[newRowCounter].AccountsReceivable;          // 1500
-                        newRow.Cell(49).Value = newAccountingElements[newRowCounter].PersonalWithdrawal;
-                        newRow.Cell(50).Value = newAccountingElements[newRowCounter].PersonalDeposit;
+                        newRow.Cell(48).Value = newAccountingElements[newRowCounter].Investments;                 // 1200
+                        newRow.Cell(49).Value = newAccountingElements[newRowCounter].AccountsReceivable;          // 1500
+                        newRow.Cell(50).Value = newAccountingElements[newRowCounter].PersonalWithdrawal;
+                        newRow.Cell(51).Value = newAccountingElements[newRowCounter].PersonalDeposit;
 
                         SetExcelRowFormulas(newRow);
                         SetExcelRowStyles(newRow);
@@ -414,6 +417,7 @@ namespace AccountingRobot
                     accountingItem.VATPurchase = ExcelUtils.GetExcelField<decimal>(row, "MVA Kjøp");
                     accountingItem.VATSales = ExcelUtils.GetExcelField<decimal>(row, "MVA Salg");
 
+                    accountingItem.VATSettlementAccount = ExcelUtils.GetExcelField<decimal>(row, "Oppgjørskonto mva"); // 2740
                     accountingItem.SalesVAT = ExcelUtils.GetExcelField<decimal>(row, "Salg mva-pliktig");	// 3000
                     accountingItem.SalesVATExempt = ExcelUtils.GetExcelField<decimal>(row, "Salg avgiftsfritt");	// 3100
 
@@ -514,24 +518,24 @@ namespace AccountingRobot
             int currentRow = row.RowNumber();
 
             // create formulas
-            string controlFormula = string.Format("=IF(AZ{0}=0,\" \",\"!!FEIL!!\")", currentRow);
-            string sumPreRoundingFormula = string.Format("=SUM(Q{0}:AX{0})", currentRow);
-            string sumRoundedFormula = string.Format("=ROUND(AY{0},2)", currentRow);
+            string controlFormula = string.Format("=IF(BA{0}=0,\" \",\"!!FEIL!!\")", currentRow);
+            string sumPreRoundingFormula = string.Format("=SUM(Q{0}:AY{0})", currentRow);
+            string sumRoundedFormula = string.Format("=ROUND(AZ{0},2)", currentRow);
             string vatSales = string.Format("=-(O{0}/1.25)*0.25", currentRow);
             string salesVATExempt = string.Format("=-(O{0}/1.25)", currentRow);
 
             // apply formulas to cells.
             row.Cell("A").FormulaA1 = controlFormula;
-            row.Cell("AY").FormulaA1 = sumPreRoundingFormula;
-            row.Cell("AZ").FormulaA1 = sumRoundedFormula;
+            row.Cell("AZ").FormulaA1 = sumPreRoundingFormula;
+            row.Cell("BA").FormulaA1 = sumRoundedFormula;
 
             // add VAT formulas
             if (row.Cell("P").Value.Equals("NOK")
                 && (row.Cell("H").Value.Equals("SHOPIFY"))
-                && (row.Cell("W").GetValue<decimal>() != 0))
+                && (row.Cell("X").GetValue<decimal>() != 0))
             {
                 row.Cell("V").FormulaA1 = vatSales;
-                row.Cell("W").FormulaA1 = salesVATExempt;
+                row.Cell("X").FormulaA1 = salesVATExempt;
             }
         }
 
@@ -553,13 +557,13 @@ namespace AccountingRobot
             var lightBlue = XLColor.FromArgb(0xEAF1FA);
             var lighterBlue = XLColor.FromArgb(0xC5D9F1);
             var blue = currentRow % 2 == 0 ? lightBlue : lighterBlue;
-            row.Cells("AU", "AX").Style.Fill.BackgroundColor = blue;
+            row.Cells("AV", "AY").Style.Fill.BackgroundColor = blue;
 
             // set background color for control sum
             var lightRed = XLColor.FromArgb(0xE6B8B7);
             var lighterRed = XLColor.FromArgb(0xF2DCDB);
             var red = currentRow % 2 == 0 ? lightRed : lighterRed;
-            row.Cell("AZ").Style.Fill.BackgroundColor = red;
+            row.Cell("BA").Style.Fill.BackgroundColor = red;
 
             // set column formats
             row.Cell("C").Style.NumberFormat.Format = "dd.MM.yyyy";
@@ -575,8 +579,8 @@ namespace AccountingRobot
             row.Cell("O").DataType = XLDataType.Number;
 
             // set style and format for the decimal range
-            row.Cells("Q", "AZ").Style.NumberFormat.Format = "#,##0.00;[Red]-#,##0.00;";
-            row.Cells("Q", "AZ").DataType = XLDataType.Number;
+            row.Cells("Q", "BA").Style.NumberFormat.Format = "#,##0.00;[Red]-#,##0.00;";
+            row.Cells("Q", "BA").DataType = XLDataType.Number;
         }
 
         static void SetExcelTableTotalsRowFunction(IXLTable table)
@@ -592,6 +596,7 @@ namespace AccountingRobot
             table.Field("MVA Kjøp").TotalsRowFunction = XLTotalsRowFunction.Sum;
             table.Field("MVA Salg").TotalsRowFunction = XLTotalsRowFunction.Sum;
 
+            table.Field("Oppgjørskonto mva").TotalsRowFunction = XLTotalsRowFunction.Sum;            
             table.Field("Salg mva-pliktig").TotalsRowFunction = XLTotalsRowFunction.Sum;                   // 3000
             table.Field("Salg avgiftsfritt").TotalsRowFunction = XLTotalsRowFunction.Sum;             // 3100
 
@@ -658,6 +663,7 @@ namespace AccountingRobot
             dt.Columns.Add("MVA Kjøp", typeof(decimal));
             dt.Columns.Add("MVA Salg", typeof(decimal));
 
+            dt.Columns.Add("Oppgjørskonto mva", typeof(decimal));               // 2740
             dt.Columns.Add("Salg mva-pliktig", typeof(decimal));                // 3000
             dt.Columns.Add("Salg avgiftsfritt", typeof(decimal));               // 3100
 
@@ -724,6 +730,7 @@ namespace AccountingRobot
                     accountingItem.VATPurchase,
                     accountingItem.VATSales,
 
+                    accountingItem.VATSettlementAccount,        // 2740
                     accountingItem.SalesVAT,                    // 3000
                     accountingItem.SalesVATExempt,              // 3100
 
@@ -805,7 +812,7 @@ namespace AccountingRobot
 
                 accountingItem.ArchiveReference = skandiabankenTransaction.ArchiveReference;
 
-                if (accountingItem.ArchiveReference.Equals("f82118abb1cc9a40fd3e0f5a1d101cc5"))
+                if (accountingItem.ArchiveReference.Equals("fddfd41eb41537643cf826b34398d632"))
                 {
                     // breakpoint here
                 }
@@ -1021,12 +1028,12 @@ namespace AccountingRobot
                         case SBankenTransaction.AccountingTypeEnum.IncomeReturn:
                             accountingItem.CostForReselling = -skandiabankenTransaction.AccountChange;
                             break;
-                        case SBankenTransaction.AccountingTypeEnum.CostOfInvoice:
-                            if (skandiabankenTransaction.Text.CaseInsensitiveContains("Merverdiavgift"))
-                            {
-                                accountingItem.VATSales = -skandiabankenTransaction.AccountChange;
-                                accountingItem.ErrorMessage = "Please add VAT payment period";
-                            }
+                        case SBankenTransaction.AccountingTypeEnum.IncomeVATReturn:
+                            accountingItem.VATSettlementAccount = -skandiabankenTransaction.AccountChange;
+                            break;
+                        case SBankenTransaction.AccountingTypeEnum.CostOfVAT:
+                            accountingItem.VATSettlementAccount = -skandiabankenTransaction.AccountChange;
+                            accountingItem.ErrorMessage = "Please add VAT payment period";
                             break;
                     }
                 }

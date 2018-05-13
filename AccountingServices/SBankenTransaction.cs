@@ -16,11 +16,13 @@ namespace AccountingServices
             CostOfServer,
             CostOfBank,
             CostOfInvoice,
+            CostOfVAT,
             CostOfTryouts,
             CostUnknown,
             TransferStripe,
             TransferPaypal,
             TransferVipps,
+            IncomeVATReturn,
             TransferUnknown,
             IncomeUnknown,
             IncomeReturn,
@@ -63,6 +65,7 @@ namespace AccountingServices
                 case AccountingTypeEnum.CostOfWebShop:
                 case AccountingTypeEnum.CostOfDomain:
                 case AccountingTypeEnum.CostOfServer:
+                case AccountingTypeEnum.CostOfVAT:
                     tmpString = string.Format("{0:dd.MM.yyyy} {1} {2} {3:dd.MM} {4} {5} {6} {7:C}", TransactionDate, GetAccountingTypeString(), ArchiveReference, ExternalPurchaseDate, ExternalPurchaseVendor, ExternalPurchaseAmount, ExternalPurchaseCurrency, AccountChange);
                     break;
                 case AccountingTypeEnum.TransferPaypal:
@@ -72,6 +75,7 @@ namespace AccountingServices
                 case AccountingTypeEnum.TransferUnknown:
                 case AccountingTypeEnum.IncomeReturn:
                 case AccountingTypeEnum.IncomeInterest:
+                case AccountingTypeEnum.IncomeVATReturn:
                 case AccountingTypeEnum.IncomeUnknown:
                 case AccountingTypeEnum.CostOfBank:
                 case AccountingTypeEnum.CostOfInvoice:
@@ -110,6 +114,9 @@ namespace AccountingServices
                 case AccountingTypeEnum.CostOfInvoice:
                     accountingTypeString = "KOST GIRO";
                     break;
+                case AccountingTypeEnum.CostOfVAT:
+                    accountingTypeString = "KOST MVA";
+                    break;
                 case AccountingTypeEnum.CostOfTryouts:
                     accountingTypeString = "KOST PRØVE";
                     break;
@@ -127,6 +134,9 @@ namespace AccountingServices
                     break;
                 case AccountingTypeEnum.IncomeReturn:
                     accountingTypeString = "INNTEKT RETUR";
+                    break;
+                case AccountingTypeEnum.IncomeVATReturn:
+                    accountingTypeString = "MVA RETUR";
                     break;
                 case AccountingTypeEnum.IncomeInterest:
                     accountingTypeString = "INNTEKT RENTER";
@@ -299,8 +309,16 @@ namespace AccountingServices
             }
             else if (Type.Equals("NETTGIRO"))
             {
-                this.AccountingType = AccountingTypeEnum.CostOfInvoice;
-                return;
+                if (Text.CaseInsensitiveContains("Merverdiavgift"))
+                {
+                    this.AccountingType = AccountingTypeEnum.CostOfVAT;
+                    return;
+                }
+                else
+                {
+                    this.AccountingType = AccountingTypeEnum.CostOfBank;
+                    return;
+                }
             }
             else if (Type.Equals("OVFNETTB"))
             {
@@ -318,7 +336,7 @@ namespace AccountingServices
                     var amount = matchTransfer2.Groups[3].Value.ToString();
 
                     // store properties                    
-                    bool isNorwegian = (amount.Contains(",") ? true : false); 
+                    bool isNorwegian = (amount.Contains(",") ? true : false);
                     ExternalPurchaseAmount = ExcelUtils.GetDecimalFromExcelCurrencyString(amount, isNorwegian);
                     ExternalPurchaseCurrency = currency;
                     ExternalPurchaseVendor = vendor;
@@ -394,6 +412,10 @@ namespace AccountingServices
                 else if (vendor.CaseInsensitiveContains("Paypal Pte Ltd"))
                 {
                     this.AccountingType = AccountingTypeEnum.TransferPaypal;
+                }
+                else if (vendor.CaseInsensitiveContains("SKATTEETATEN"))
+                {
+                    this.AccountingType = AccountingTypeEnum.IncomeVATReturn;
                 }
                 else
                 {

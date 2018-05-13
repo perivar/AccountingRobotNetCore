@@ -32,6 +32,7 @@ namespace AccountingServices
 
         public decimal VATPurchase { get; set; }
         public decimal VATSales { get; set; }
+        public decimal VATSettlementAccount  { get; set; }      // 2740
 
         public decimal SalesVAT { get; set; }                   // 3000
         public decimal SalesVATExempt { get; set; }             // 3100
@@ -148,6 +149,7 @@ namespace AccountingServices
             Map(m => m.VATPurchase);
             Map(m => m.VATSales);
 
+            Map(m => m.VATSettlementAccount);
             Map(m => m.SalesVAT);
             Map(m => m.SalesVATExempt);
 
