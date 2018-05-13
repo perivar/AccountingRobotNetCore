@@ -379,11 +379,7 @@ namespace AccountingServices
             // if neither match for purchase or transfer
             if (AccountChange > 0)
             {
-                if (Text.CaseInsensitiveContains("STRIPE PAYMENTS UK LTD")) {
-                    this.AccountingType = AccountingTypeEnum.TransferStripe;
-                } else {
-                    this.AccountingType = AccountingTypeEnum.IncomeUnknown;
-                }
+                this.AccountingType = AccountingTypeEnum.IncomeUnknown;
             }
             else
             {
