@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
+using Google.Apis.Sheets.v4.Data;
 
 namespace AccountingServices
 {
@@ -52,6 +53,41 @@ namespace AccountingServices
             {
                 Console.WriteLine("No data found.");
             }
+        }
+
+        public void CreateEntry()
+        {
+            var range = $"{sheet}!A:F";
+            var valueRange = new ValueRange();
+
+            var oblist = new List<object>() { "Hello!", "This", "was", "insertd", "via", "C#" };
+            valueRange.Values = new List<IList<object>> { oblist };
+
+            var appendRequest = service.Spreadsheets.Values.Append(valueRange, SpreadsheetId, range);
+            appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
+            var appendReponse = appendRequest.Execute();
+        }
+
+        public void UpdateEntry()
+        {
+            var range = $"{sheet}!D543";
+            var valueRange = new ValueRange();
+
+            var oblist = new List<object>() { "updated" };
+            valueRange.Values = new List<IList<object>> { oblist };
+
+            var updateRequest = service.Spreadsheets.Values.Update(valueRange, SpreadsheetId, range);
+            updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
+            var appendReponse = updateRequest.Execute();
+        }
+
+        public void DeleteEntry()
+        {
+            var range = $"{sheet}!A543:F";
+            var requestBody = new ClearValuesRequest();
+
+            var deleteRequest = service.Spreadsheets.Values.Clear(requestBody, SpreadsheetId, range);
+            var deleteReponse = deleteRequest.Execute();
         }
 
     }
