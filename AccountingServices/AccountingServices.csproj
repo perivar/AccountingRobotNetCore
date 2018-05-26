@@ -16,6 +16,12 @@
     <PackageReference Include="Stripe.net" Version="15.8.0"/>
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="2.0.2"/>
     <PackageReference Include="DotNetSeleniumExtras.WaitHelpers" Version="3.11.0"/>
+    <PackageReference Include="Google.Apis.Sheets.v4" Version="1.33.1.1236"/>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="client_secret.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.Extensions.SecretManager.Tools" Version="2.0.1"/>

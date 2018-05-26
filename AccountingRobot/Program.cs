@@ -15,6 +15,10 @@ namespace AccountingRobot
     {
         static void Main(string[] args)
         {
+            //var googleFactory = new GoogleSheetsFactory();
+            //googleFactory.ReadEntries();
+            //return;
+            
             // init date
             var date = new Date();
 

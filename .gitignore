@@ -262,3 +262,4 @@ __pycache__/
 
 node_modules
 solution-explorer
+client_secret.json
