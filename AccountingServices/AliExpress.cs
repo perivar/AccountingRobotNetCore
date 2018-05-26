@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Text;
 using System.Text.RegularExpressions;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.IO;
 using System.Reflection;
+using System.Collections.Generic;
+using System.Globalization;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Support.UI;
 using OpenQA.Selenium.Remote;
+using SeleniumExtras.WaitHelpers;
 
 namespace AccountingServices
 {
@@ -68,7 +69,7 @@ namespace AccountingServices
             try
             {
                 var waitMainPage = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
-                waitMainPage.Until(ExpectedConditions.UrlToBe("https://www.aliexpress.com/"));
+                waitMainPage.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.UrlToBe("https://www.aliexpress.com/"));
             }
             catch (WebDriverTimeoutException)
             {

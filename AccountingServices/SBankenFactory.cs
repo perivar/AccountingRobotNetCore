@@ -74,7 +74,7 @@ namespace AccountingServices
             string clientId = configuration.GetValue("SBankenApiClientId");
             string secret = configuration.GetValue("SBankenApiSecret");
             string customerId = configuration.GetValue("SBankenApiCustomerId");
-            string accountNumber = configuration.GetValue("SBankenAccountNumber");
+            string accountId = configuration.GetValue("SBankenAccountId");
 
             var sBankenTransactions = new List<SBankenTransaction>();
 
@@ -85,7 +85,6 @@ namespace AccountingServices
             const string discoveryEndpoint = "https://api.sbanken.no/identityserver";
             const string apiBaseAddress = "https://api.sbanken.no";
             const string bankBasePath = "/bank";
-            //const string customersBasePath = "/customers";
 
             // First: get the OpenId configuration from Sbanken.
             var discoClient = new DiscoveryClient(discoveryEndpoint);
@@ -108,16 +107,17 @@ namespace AccountingServices
             // ensure basic authentication RFC2617 is used
             // The application must authenticate itself with Sbanken's authorization server.
             // The basic authentication scheme is used here (https://tools.ietf.org/html/rfc2617#section-2 ) 
-            var tokenClient = new TokenClient(discoResult.TokenEndpoint, clientId, secret)
-            {
-                BasicAuthenticationHeaderStyle = BasicAuthenticationHeaderStyle.Rfc2617
-            };
+            //var tokenClient = new TokenClient(discoResult.TokenEndpoint, clientId, secret)
+            //{
+            //    BasicAuthenticationHeaderStyle = BasicAuthenticationHeaderStyle.Rfc2617
+            //};
+            var tokenClient = new TokenClient(discoResult.TokenEndpoint, clientId, secret);
 
             var tokenResponse = tokenClient.RequestClientCredentialsAsync().Result;
 
             if (tokenResponse.IsError)
             {
-                throw new Exception(tokenResponse.Error);
+                throw new Exception(tokenResponse.ErrorDescription);
             }
 
             // The application now has an access token.
@@ -125,100 +125,98 @@ namespace AccountingServices
             var httpClient = new HttpClient()
             {
                 BaseAddress = new Uri(apiBaseAddress),
+                DefaultRequestHeaders =
+                {
+                    { "customerId", customerId }
+                }
             };
 
             // Finally: Set the access token on the connecting client. 
             // It will be used with all requests against the API endpoints.
             httpClient.SetBearerToken(tokenResponse.AccessToken);
 
-            // retrieves the customer's information.
-            //var customerResponse = await httpClient.GetAsync($"{customersBasePath}/api/v1/Customers/{customerId}");
-            //var customerResult = await customerResponse.Content.ReadAsStringAsync();
-
-            // retrieves the customer's accounts.
-            //var accountResponse = await httpClient.GetAsync($"{bankBasePath}/api/v1/Accounts/{customerId}");
-            //var accountResult = await accountResponse.Content.ReadAsStringAsync();
-
             // retrieve the customer's transactions
             // RFC3339 / ISO8601 with 3 decimal places
             // yyyy-MM-ddTHH:mm:ss.fffK            
             string querySuffix = string.Format(CultureInfo.InvariantCulture, "?length=1000&startDate={0:yyyy-MM-ddTHH:mm:ss.fffK}&endDate={1:yyyy-MM-ddTHH:mm:ss.fffK}", from, to);
-            //var transactionResponse = await httpClient.GetAsync($"{bankBasePath}/api/v1/Transactions/{customerId}/{accountNumber}{querySuffix}");
-            var transactionResponse = await httpClient.GetAsync($"{bankBasePath}/api/v2/Transactions/{customerId}/{accountNumber}{querySuffix}");
+            var transactionResponse = await httpClient.GetAsync($"{bankBasePath}/api/v1/Transactions/{accountId}{querySuffix}");
             var transactionResult = await transactionResponse.Content.ReadAsStringAsync();
 
             // parse json
             dynamic jsonDe = JsonConvert.DeserializeObject(transactionResult);
 
-            foreach (var transaction in jsonDe.items)
+            if (jsonDe != null)
             {
-                var amount = transaction.amount;
-                var text = transaction.text;
-                var transactionType = transaction.transactionType;
-                var transactionTypeText = transaction.transactionTypeText;
-                var accountingDate = transaction.accountingDate;
-                var interestDate = transaction.interestDate;
-
-                var transactionId = transaction.transactionId;
-                // Note, untill Sbanken fixed their unique transaction Id issue, generate one ourselves
-                if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
+                foreach (var transaction in jsonDe.items)
                 {
-                    string uniqueContent = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
-                    string hashCode = Utils.CreateMD5(uniqueContent);
-                    transactionId = hashCode;
-                }
+                    var amount = transaction.amount;
+                    var text = transaction.text;
+                    var transactionType = transaction.transactionType;
+                    var transactionTypeText = transaction.transactionTypeText;
+                    var accountingDate = transaction.accountingDate;
+                    var interestDate = transaction.interestDate;
 
-                var sBankenTransaction = new SBankenTransaction();
-                sBankenTransaction.TransactionDate = accountingDate;
-                sBankenTransaction.InterestDate = interestDate;
-                sBankenTransaction.ArchiveReference = transactionId;
-                sBankenTransaction.Type = transactionTypeText;
-                sBankenTransaction.Text = text;
-
-                var date = new Date();
-                var currentDate = date.CurrentDate;
-
-                // check if card details was specified
-                if ((bool)transaction.cardDetailsSpecified)
-                {
-                    var cardDatailsCardNumber = transaction.cardDetails.cardNumber;
-                    var cardDatailsCurrencyAmount = transaction.cardDetails.currencyAmount;
-                    var cardDatailsCurrencyRate = transaction.cardDetails.currencyRate;
-                    var cardDatailsCurrencyCode = transaction.cardDetails.originalCurrencyCode;
-                    var cardDatailsMerchantCategoryCode = transaction.cardDetails.merchantCategoryCode;
-                    var cardDatailsMerchantName = transaction.cardDetails.merchantName;
-                    var cardDatailsPurchaseDate = transaction.cardDetails.purchaseDate;
-                    var cardDatailsTransactionId = transaction.cardDetails.transactionId;
-
-                    sBankenTransaction.ExternalPurchaseDate = cardDatailsPurchaseDate;
-                    sBankenTransaction.ExternalPurchaseAmount = cardDatailsCurrencyAmount;
-                    sBankenTransaction.ExternalPurchaseCurrency = cardDatailsCurrencyCode;
-                    sBankenTransaction.ExternalPurchaseVendor = cardDatailsMerchantName;
-                    sBankenTransaction.ExternalPurchaseExchangeRate = cardDatailsCurrencyRate;
-
-                    // NOTE! fix a likely bug in the API where the external purchase date is the wrong year
-                    if (sBankenTransaction.ExternalPurchaseDate.Year == currentDate.Year
-                        && sBankenTransaction.ExternalPurchaseDate.Month > currentDate.Month)
+                    var transactionId = transaction.transactionId;
+                    // Note, untill Sbanken fixed their unique transaction Id issue, generate one ourselves
+                    if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
                     {
-                        sBankenTransaction.ExternalPurchaseDate = sBankenTransaction.ExternalPurchaseDate.AddYears(-1);
+                        string uniqueContent = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
+                        string hashCode = Utils.CreateMD5(uniqueContent);
+                        transactionId = hashCode;
                     }
-                }
 
-                // set account change
-                sBankenTransaction.AccountChange = amount;
+                    var sBankenTransaction = new SBankenTransaction();
+                    sBankenTransaction.TransactionDate = accountingDate;
+                    sBankenTransaction.InterestDate = interestDate;
+                    sBankenTransaction.ArchiveReference = transactionId;
+                    sBankenTransaction.Type = transactionTypeText;
+                    sBankenTransaction.Text = text;
 
-                if (amount > 0)
-                {
-                    sBankenTransaction.AccountingType = SBankenTransaction.AccountingTypeEnum.IncomeUnknown;
-                }
-                else
-                {
-                    sBankenTransaction.AccountingType = SBankenTransaction.AccountingTypeEnum.CostUnknown;
-                }
+                    var date = new Date();
+                    var currentDate = date.CurrentDate;
 
-                if (transactionId != null && transactionId != "")
-                {
-                    sBankenTransactions.Add(sBankenTransaction);
+                    // check if card details was specified
+                    if ((bool)transaction.cardDetailsSpecified)
+                    {
+                        var cardDatailsCardNumber = transaction.cardDetails.cardNumber;
+                        var cardDatailsCurrencyAmount = transaction.cardDetails.currencyAmount;
+                        var cardDatailsCurrencyRate = transaction.cardDetails.currencyRate;
+                        var cardDatailsCurrencyCode = transaction.cardDetails.originalCurrencyCode;
+                        var cardDatailsMerchantCategoryCode = transaction.cardDetails.merchantCategoryCode;
+                        var cardDatailsMerchantName = transaction.cardDetails.merchantName;
+                        var cardDatailsPurchaseDate = transaction.cardDetails.purchaseDate;
+                        var cardDatailsTransactionId = transaction.cardDetails.transactionId;
+
+                        sBankenTransaction.ExternalPurchaseDate = cardDatailsPurchaseDate;
+                        sBankenTransaction.ExternalPurchaseAmount = cardDatailsCurrencyAmount;
+                        sBankenTransaction.ExternalPurchaseCurrency = cardDatailsCurrencyCode;
+                        sBankenTransaction.ExternalPurchaseVendor = cardDatailsMerchantName;
+                        sBankenTransaction.ExternalPurchaseExchangeRate = cardDatailsCurrencyRate;
+
+                        // NOTE! fix a likely bug in the API where the external purchase date is the wrong year
+                        if (sBankenTransaction.ExternalPurchaseDate.Year == currentDate.Year
+                            && sBankenTransaction.ExternalPurchaseDate.Month > currentDate.Month)
+                        {
+                            sBankenTransaction.ExternalPurchaseDate = sBankenTransaction.ExternalPurchaseDate.AddYears(-1);
+                        }
+                    }
+
+                    // set account change
+                    sBankenTransaction.AccountChange = amount;
+
+                    if (amount > 0)
+                    {
+                        sBankenTransaction.AccountingType = SBankenTransaction.AccountingTypeEnum.IncomeUnknown;
+                    }
+                    else
+                    {
+                        sBankenTransaction.AccountingType = SBankenTransaction.AccountingTypeEnum.CostUnknown;
+                    }
+
+                    if (transactionId != null && transactionId != "")
+                    {
+                        sBankenTransactions.Add(sBankenTransaction);
+                    }
                 }
             }
 

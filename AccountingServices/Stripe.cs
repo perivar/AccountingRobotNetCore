@@ -110,19 +110,19 @@ namespace AccountingServices
 
             StripeConfiguration.SetApiKey(stripeApiKey);
 
-            var balanceService = new StripeBalanceService();
-            var allBalanceTransactions = new List<StripeBalanceTransaction>();
+            var payoutService = new StripePayoutService();
+            var allPayoutTransactions = new List<StripePayout>();
             var lastId = String.Empty;
 
             int MAX_PAGINATION = 100;
             int itemsExpected = MAX_PAGINATION;
             while (itemsExpected == MAX_PAGINATION)
             {
-                IEnumerable<StripeBalanceTransaction> charges = null;
+                IEnumerable<StripePayout> charges = null;
                 if (String.IsNullOrEmpty(lastId))
                 {
-                    charges = balanceService.List(
-                    new StripeBalanceTransactionListOptions()
+                    charges = payoutService.List(
+                    new StripePayoutListOptions()
                     {
                         Limit = MAX_PAGINATION,
                         Created = new StripeDateFilter
@@ -135,8 +135,8 @@ namespace AccountingServices
                 }
                 else
                 {
-                    charges = balanceService.List(
-                    new StripeBalanceTransactionListOptions()
+                    charges = payoutService.List(
+                    new StripePayoutListOptions()
                     {
                         Limit = MAX_PAGINATION,
                         StartingAfter = lastId,
@@ -149,27 +149,25 @@ namespace AccountingServices
                     itemsExpected = charges.Count();
                 }
 
-                allBalanceTransactions.AddRange(charges);
-                if (allBalanceTransactions.Count() > 0) lastId = charges.LastOrDefault().Id;
+                allPayoutTransactions.AddRange(charges);
+                if (allPayoutTransactions.Count() > 0) lastId = charges.LastOrDefault().Id;
             }
 
             var stripeTransactions = new List<StripeTransaction>();
-            foreach (var balanceTransaction in allBalanceTransactions)
+            foreach (var payoutTransaction in allPayoutTransactions)
             {
                 // only process the charges that are payouts
-                if (balanceTransaction.Type == "payout")
+                if (payoutTransaction.Object == "payout")
                 {
                     var stripeTransaction = new StripeTransaction();
-                    stripeTransaction.TransactionID = balanceTransaction.Id;
-                    stripeTransaction.Created = balanceTransaction.Created;
-                    stripeTransaction.AvailableOn = balanceTransaction.AvailableOn;
-                    stripeTransaction.Paid = (balanceTransaction.Status == "available");
-                    stripeTransaction.Amount = (decimal)balanceTransaction.Amount / 100;
-                    stripeTransaction.Net = (decimal)balanceTransaction.Net / 100;
-                    stripeTransaction.Fee = (decimal)balanceTransaction.Fee / 100;
-                    stripeTransaction.Currency = balanceTransaction.Currency;
-                    stripeTransaction.Description = balanceTransaction.Description;
-                    stripeTransaction.Status = balanceTransaction.Status;
+                    stripeTransaction.TransactionID = payoutTransaction.Id;
+                    stripeTransaction.Created = payoutTransaction.Created;
+                    stripeTransaction.AvailableOn = payoutTransaction.ArrivalDate;
+                    stripeTransaction.Paid = (payoutTransaction.Status == "paid");
+                    stripeTransaction.Amount = (decimal)payoutTransaction.Amount / 100;
+                    stripeTransaction.Currency = payoutTransaction.Currency;
+                    stripeTransaction.Description = payoutTransaction.Description;
+                    stripeTransaction.Status = payoutTransaction.Status;
 
                     stripeTransactions.Add(stripeTransaction);
                 }

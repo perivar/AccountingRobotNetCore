@@ -217,7 +217,7 @@ namespace AccountingRobot
 
                     accountingItem.VATPurchase = ExcelUtils.GetExcelField<decimal>(row, "MVA Kjøp");
                     accountingItem.VATSales = ExcelUtils.GetExcelField<decimal>(row, "MVA Salg");
-                    
+
                     accountingItem.VATSettlementAccount = ExcelUtils.GetExcelField<decimal>(row, "Oppgjørskonto mva");
                     accountingItem.SalesVAT = ExcelUtils.GetExcelField<decimal>(row, "Salg mva-pliktig");	// 3000
                     accountingItem.SalesVATExempt = ExcelUtils.GetExcelField<decimal>(row, "Salg avgiftsfritt");	// 3100
@@ -319,7 +319,7 @@ namespace AccountingRobot
 
                         newRow.Cell(21).Value = newAccountingElements[newRowCounter].VATPurchase;
                         newRow.Cell(22).Value = newAccountingElements[newRowCounter].VATSales;
-                        
+
                         newRow.Cell(23).Value = newAccountingElements[newRowCounter].VATSettlementAccount;        // 2740                        
                         newRow.Cell(24).Value = newAccountingElements[newRowCounter].SalesVAT;                    // 3000
                         newRow.Cell(25).Value = newAccountingElements[newRowCounter].SalesVATExempt;              // 3100
@@ -596,7 +596,7 @@ namespace AccountingRobot
             table.Field("MVA Kjøp").TotalsRowFunction = XLTotalsRowFunction.Sum;
             table.Field("MVA Salg").TotalsRowFunction = XLTotalsRowFunction.Sum;
 
-            table.Field("Oppgjørskonto mva").TotalsRowFunction = XLTotalsRowFunction.Sum;            
+            table.Field("Oppgjørskonto mva").TotalsRowFunction = XLTotalsRowFunction.Sum;
             table.Field("Salg mva-pliktig").TotalsRowFunction = XLTotalsRowFunction.Sum;                   // 3000
             table.Field("Salg avgiftsfritt").TotalsRowFunction = XLTotalsRowFunction.Sum;             // 3100
 
@@ -932,7 +932,7 @@ namespace AccountingRobot
                     from transaction in stripePayoutTransactions
                     where
                     transaction.Paid &&
-                    transaction.Net == -skandiabankenTransaction.AccountChange &&
+                    transaction.Amount == skandiabankenTransaction.AccountChange &&
                      (transaction.AvailableOn.Date >= startDate.Date && transaction.AvailableOn.Date <= endDate.Date)
                     orderby transaction.Created ascending
                     select transaction;

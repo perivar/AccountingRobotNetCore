@@ -1,13 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using Microsoft.Extensions.Configuration;
 using System.IO;
+using System.Collections.Generic;
 using System.Threading;
+using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using ClosedXML.Excel;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
-using System.Reflection;
+using SeleniumExtras.WaitHelpers;
 
 namespace AccountingServices
 {
@@ -215,7 +216,7 @@ namespace AccountingServices
             try
             {
                 var waitMainPage = new WebDriverWait(driver, TimeSpan.FromSeconds(30));
-                waitMainPage.Until(ExpectedConditions.UrlToBe("https://secure.sbanken.no/Home/Overview/Full#/"));
+                waitMainPage.Until(SeleniumExtras.WaitHelpers.ExpectedConditions.UrlToBe("https://secure.sbanken.no/Home/Overview/Full#/"));
             }
             catch (WebDriverTimeoutException)
             {
