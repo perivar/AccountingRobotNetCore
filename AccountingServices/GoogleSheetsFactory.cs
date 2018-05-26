@@ -19,7 +19,7 @@ namespace AccountingServices
         public GoogleSheetsFactory()
         {
             GoogleCredential credential;
-            using (var stream = new FileStream("client_secret.json", FileMode.Open, FileAccess.Read))
+            using (var stream = new FileStream("google_client_secret.json", FileMode.Open, FileAccess.Read))
             {
                 credential = GoogleCredential.FromStream(stream)
                   .CreateScoped(Scopes);

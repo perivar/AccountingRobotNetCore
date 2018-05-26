@@ -19,11 +19,6 @@
     <PackageReference Include="Google.Apis.Sheets.v4" Version="1.33.1.1236"/>
   </ItemGroup>
   <ItemGroup>
-    <None Update="client_secret.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.Extensions.SecretManager.Tools" Version="2.0.1"/>
   </ItemGroup>
 </Project>
