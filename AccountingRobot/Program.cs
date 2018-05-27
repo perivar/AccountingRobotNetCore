@@ -8,6 +8,7 @@ using System.IO;
 using System.Globalization;
 using AccountingServices;
 using System.Text.RegularExpressions;
+using Google.Apis.Sheets.v4.Data;
 
 namespace AccountingRobot
 {
@@ -15,23 +16,7 @@ namespace AccountingRobot
     {
         static void Main(string[] args)
         {
-            
-            var googleFactory = new GoogleSheetsFactory();
-            //googleFactory.ReadEntries("BILAGSJOURNAL");
-            //int sheetId = googleFactory.AddSheet("BILAGSJOURNAL2");
-            //googleFactory.AddContentToSheet("BILAGSJOURNAL2");
-            //googleFactory.UpdateFormatting("BILAGSJOURNAL2");
-            var sheet = googleFactory.GetSheetFromSheetName("BILAGSJOURNAL2");
-            int sheetId = googleFactory.GetSheetIdFromSheetName("BILAGSJOURNAL2");
-            googleFactory.DeleteRows(sheetId, 0, 10);
-            googleFactory.InsertDataTable("BILAGSJOURNAL2");
-            googleFactory.UpdateFormatting(sheetId, 0xD8E4BC);
-
-            //googleFactory.CreateEntry();
-            //googleFactory.UpdateEntry();
-            //googleFactory.DeleteEntry();
-            return;
-             
+            bool USE_EXCEL = false;
 
             // init date
             var date = new Date();
@@ -55,7 +40,6 @@ namespace AccountingRobot
             customerNames = customerNames.Distinct().ToList();
 
             // find latest skandiabanken transaction spreadsheet
-            //var sBankenBankStatement = SBanken.GetLatestBankStatement();
             var sBankenTransactions = SBankenFactory.Instance.GetLatest(configuration, true);
             var sBankenBankStatement = SBanken.GetBankStatementFromTransactions(sBankenTransactions);
             if (sBankenBankStatement.Transactions.Count() == 0)
@@ -77,7 +61,9 @@ namespace AccountingRobot
             string accountingFileDir = configuration.GetValue("AccountingDir");
             string accountingFileNamePrefix = "wazalo regnskap";
             string accountingDateFromToRegexPattern = @"(\d{4}\-\d{2}\-\d{2})\-(\d{4}\-\d{2}\-\d{2})\.xlsx$";
-            var lastAccountingFileInfo = Utils.FindLastCacheFile(accountingFileDir, accountingFileNamePrefix, accountingDateFromToRegexPattern, "yyyy-MM-dd", "\\-");
+
+            FileDate lastAccountingFileInfo = null;
+            if (USE_EXCEL) lastAccountingFileInfo = Utils.FindLastCacheFile(accountingFileDir, accountingFileNamePrefix, accountingDateFromToRegexPattern, "yyyy-MM-dd", "\\-");
 
             // if the cache file object has values
             if (null != lastAccountingFileInfo && !lastAccountingFileInfo.Equals(default(FileDate)))
@@ -98,25 +84,108 @@ namespace AccountingRobot
 
                     Console.Out.WriteLine("Successfully renamed accounting file!");
                 }
-
-                //UpdateExcelFileWithTransactionsIds(lastAccountingFile.Value, accountingItems);
             }
             else
             {
                 Console.Out.WriteLine("No existing accounting spreadsheets found - creating ...");
 
-                // export to excel file
                 var from = date.FirstDayOfTheYear;
                 var to = date.CurrentDate;
 
-                string accountingFileName = string.Format("{0}-{1:yyyy-MM-dd}-{2:yyyy-MM-dd}.xlsx", accountingFileNamePrefix, from, to);
-                string filePath = Path.Combine(accountingFileDir, accountingFileName);
+                if (USE_EXCEL)
+                {
+                    // export to excel file
+                    string accountingFileName = string.Format("{0}-{1:yyyy-MM-dd}-{2:yyyy-MM-dd}.xlsx", accountingFileNamePrefix, from, to);
+                    string filePath = Path.Combine(accountingFileDir, accountingFileName);
 
-                ExportToExcel(filePath, accountingItems);
+                    ExportToExcel(filePath, accountingItems);
+                }
+                else
+                {
+                    ExportToGoogleSheets(accountingItems);
+                }
             }
 
             Console.ReadLine();
         }
+
+        #region Google Sheets Methods
+        static void ExportToGoogleSheets(List<AccountingItem> accountingItems)
+        {
+            string sheetName = "BILAGSJOURNAL2";
+            var dt = GetDataTable(accountingItems);
+
+            // Build Google Sheets spreadsheet 
+            using (GoogleSheetsFactory googleFactory = new GoogleSheetsFactory())
+            {
+                int sheetId = googleFactory.AddSheet(sheetName);
+                //int sheetId = googleFactory.GetSheetIdFromSheetName(sheetName);
+                //googleFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
+
+                // add accounting headers
+                var accountingHeaders = new string[50];
+                accountingHeaders[0] = "Næringsoppgave";
+                accountingHeaders[16] = "1910";
+                accountingHeaders[17] = "1912";
+                accountingHeaders[18] = "1914";
+                accountingHeaders[19] = "1920";
+
+                accountingHeaders[22] = "2740";
+                accountingHeaders[23] = "3000";
+                accountingHeaders[24] = "3100";
+                accountingHeaders[25] = "4005";
+                accountingHeaders[26] = "4300";
+                accountingHeaders[27] = "5000";
+                accountingHeaders[28] = "5400";
+                accountingHeaders[29] = "6000";
+                accountingHeaders[30] = "6100";
+                accountingHeaders[31] = "6340";
+                accountingHeaders[32] = "6500";
+                accountingHeaders[33] = "6695";
+                accountingHeaders[34] = "6800";
+                accountingHeaders[35] = "6810";
+                accountingHeaders[36] = "6900";
+                accountingHeaders[37] = "7098";
+                accountingHeaders[38] = "7140";
+                accountingHeaders[39] = "7330";
+                accountingHeaders[40] = "7700";
+                accountingHeaders[41] = "7770";
+                accountingHeaders[42] = "7780";
+                accountingHeaders[43] = "7785";
+                accountingHeaders[44] = "7790";
+                accountingHeaders[45] = "8099";
+                accountingHeaders[46] = "8199";
+                accountingHeaders[47] = "1200";
+                accountingHeaders[48] = "1500";
+                var headerRange = "A1:BA1";
+                googleFactory.UpdateRow(sheetName, headerRange, accountingHeaders);
+
+                // insert datatable in row 2
+                googleFactory.AppendDataTable(sheetName, sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xC5D9F1);
+
+                // set font color for header range
+                var userEnteredFormat = new CellFormat()
+                {
+                    BackgroundColor = GoogleSheetsFactory.GetColor(0x000000),
+                    HorizontalAlignment = "CENTER",
+                    TextFormat = new TextFormat()
+                    {
+                        ForegroundColor = GoogleSheetsFactory.GetColor(0xFFFFFF),
+                        FontSize = 11,
+                        Bold = true
+                    }
+                };
+                googleFactory.UpdateFormatting(sheetId, userEnteredFormat, 54, 1);
+
+                //table.Theme = XLTableTheme.TableStyleLight16;
+
+                // turn on table total rows and set the functions for each of the relevant columns
+                //SetExcelTableTotalsRowFunction(table);
+
+                Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
+            }
+        }
+        #endregion
 
         #region Excel Methods
         static void ExportToExcel(string filePath, List<AccountingItem> accountingItems)
@@ -792,6 +861,8 @@ namespace AccountingRobot
 
         static List<AccountingItem> ProcessBankAccountStatement(IMyConfiguration configuration, SkandiabankenBankStatement skandiabankenBankStatement, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)
         {
+            bool PROCESS_ALIEXPRESS = false;
+
             var accountingList = new List<AccountingItem>();
 
             if (skandiabankenBankStatement == null) return accountingList;
@@ -804,9 +875,18 @@ namespace AccountingRobot
             var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, false);
             Console.Out.WriteLine("Successfully read Stripe payout transactions ...");
 
-            var oberloOrders = OberloFactory.Instance.GetLatest(configuration);
-            var aliExpressOrders = AliExpressFactory.Instance.GetLatest(configuration);
-            var aliExpressOrderGroups = AliExpress.CombineOrders(aliExpressOrders);
+            // check if we are processing aliexpress
+            var oberloOrders = new List<OberloOrder>();
+            var aliExpressOrderGroups = new List<AliExpressOrderGroup>();
+            if (PROCESS_ALIEXPRESS)
+            {
+                // process oberlo
+                oberloOrders = OberloFactory.Instance.GetLatest(configuration);
+
+                // and then ali express
+                var aliExpressOrders = AliExpressFactory.Instance.GetLatest(configuration);
+                aliExpressOrderGroups = AliExpress.CombineOrders(aliExpressOrders);
+            }
 
             // run through the bank account transactions
             var skandiabankenTransactions = skandiabankenBankStatement.Transactions;
@@ -880,7 +960,7 @@ namespace AccountingRobot
                     accountingItem.AccountBank = skandiabankenTransaction.AccountChange;
                     accountingItem.CostForReselling = -skandiabankenTransaction.AccountChange;
 
-                    if (skandiabankenTransaction.ExternalPurchaseVendor.CaseInsensitiveContains("AliExpress"))
+                    if (PROCESS_ALIEXPRESS && skandiabankenTransaction.ExternalPurchaseVendor.CaseInsensitiveContains("AliExpress"))
                     {
                         FindAliExpressOrderNumber(usedOrderNumbers, aliExpressOrderGroups, oberloOrders, skandiabankenTransaction, accountingItem);
                     }
