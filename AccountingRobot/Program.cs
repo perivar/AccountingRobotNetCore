@@ -16,12 +16,20 @@ namespace AccountingRobot
         static void Main(string[] args)
         {
             
-            //var googleFactory = new GoogleSheetsFactory();
-            //googleFactory.ReadEntries();
+            var googleFactory = new GoogleSheetsFactory();
+            //googleFactory.ReadEntries("BILAGSJOURNAL");
+            //int sheetId = googleFactory.AddSheet("BILAGSJOURNAL2");
+            //googleFactory.AddContentToSheet("BILAGSJOURNAL2");
+            //googleFactory.UpdateFormatting("BILAGSJOURNAL2");
+            int sheetId = googleFactory.GetSheetIdFromSheetName("BILAGSJOURNAL2");
+            googleFactory.DeleteRows(sheetId, 0, 10);
+            googleFactory.InsertDataTable("BILAGSJOURNAL2");
+            googleFactory.UpdateFormatting(sheetId, 0xD8E4BC);
+
             //googleFactory.CreateEntry();
             //googleFactory.UpdateEntry();
             //googleFactory.DeleteEntry();
-            //return;
+            return;
              
 
             // init date
