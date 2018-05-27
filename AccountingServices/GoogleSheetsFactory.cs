@@ -44,6 +44,14 @@ namespace AccountingServices
             return sheetId;
         }
 
+        public Sheet GetSheetFromSheetName(string sheetName)
+        {
+            // get sheet id by sheet name
+            var spreadsheet = service.Spreadsheets.Get(spreadsheetId).Execute();
+            var sheet = spreadsheet.Sheets.Where(s => s.Properties.Title == sheetName).FirstOrDefault();
+            return sheet;
+        }
+
         public int AddSheet(string sheetName)
         {
             // add new sheet
@@ -140,9 +148,10 @@ namespace AccountingServices
             };
 
             var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
 
             // create the update request for cells from the first row
-            var request = new Request()
+            var formatRequest = new Request()
             {
                 RepeatCell = new RepeatCellRequest()
                 {
@@ -150,7 +159,7 @@ namespace AccountingServices
                     {
                         SheetId = sheetId,
                         StartColumnIndex = 0,
-                        EndColumnIndex = 28,
+                        EndColumnIndex = 4,
                         StartRowIndex = 0,
                         EndRowIndex = 1
                     },
@@ -161,17 +170,37 @@ namespace AccountingServices
                     Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
                 }
             };
-            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
-            batchUpdateSpreadsheetRequest.Requests.Add(request);
+            batchUpdateSpreadsheetRequest.Requests.Add(formatRequest);
 
-            // filter
+            // set basic filter for all rows except the last
+            var filterRequest = new Request()
+            {
+                SetBasicFilter = new SetBasicFilterRequest()
+                {
+                    Filter = new BasicFilter()
+                    {
+                        Criteria = null,
+                        SortSpecs = null,
+                        Range = new GridRange()
+                        {
+                            SheetId = sheetId,
+                            StartColumnIndex = 0,
+                            EndColumnIndex = 4,
+                            StartRowIndex = 0,
+                            EndRowIndex = 4
+                        }
+                    }
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
+
             /*
             FilterCriteria criteria = new FilterCriteria();
             criteria.Condition = new BooleanCondition();
             criteria.Condition.Type = "NOT_BLANK";
 
-            IDictionary<string, FilterCriteria> criteriaDictionary = new Dictionary<string, FilterCriteria>();
-            criteriaDictionary.Add("8", criteria);
+            var criteriaDictionary = new Dictionary<string, FilterCriteria>();
+            criteriaDictionary.Add("8", criteria); // define at which index the  filter is active
 
             var filterRequest = new Request();
             filterRequest.AddFilterView = new AddFilterViewRequest();
@@ -181,7 +210,7 @@ namespace AccountingServices
             filterRequest.AddFilterView.Filter.Range = range1;
             filterRequest.AddFilterView.Filter.Criteria = criteriaDictionary;
             batchUpdateSpreadsheetRequest.Requests.Add(request);
- */
+             */
 
             var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
             batchUpdateRequest.Execute();

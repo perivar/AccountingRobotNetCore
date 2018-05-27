@@ -21,6 +21,7 @@ namespace AccountingRobot
             //int sheetId = googleFactory.AddSheet("BILAGSJOURNAL2");
             //googleFactory.AddContentToSheet("BILAGSJOURNAL2");
             //googleFactory.UpdateFormatting("BILAGSJOURNAL2");
+            var sheet = googleFactory.GetSheetFromSheetName("BILAGSJOURNAL2");
             int sheetId = googleFactory.GetSheetIdFromSheetName("BILAGSJOURNAL2");
             googleFactory.DeleteRows(sheetId, 0, 10);
             googleFactory.InsertDataTable("BILAGSJOURNAL2");
