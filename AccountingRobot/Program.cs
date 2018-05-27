@@ -160,9 +160,6 @@ namespace AccountingRobot
                 var headerRange = "A1:BA1";
                 googleFactory.UpdateRow(sheetName, headerRange, accountingHeaders);
 
-                // insert datatable in row 2
-                googleFactory.AppendDataTable(sheetName, sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xC5D9F1);
-
                 // set font color for header range
                 var userEnteredFormat = new CellFormat()
                 {
@@ -176,6 +173,9 @@ namespace AccountingRobot
                     }
                 };
                 googleFactory.UpdateFormatting(sheetId, userEnteredFormat, 54, 1);
+
+                // insert datatable in row 2
+                googleFactory.AppendDataTable(sheetName, sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xC5D9F1);
 
                 //table.Theme = XLTableTheme.TableStyleLight16;
 

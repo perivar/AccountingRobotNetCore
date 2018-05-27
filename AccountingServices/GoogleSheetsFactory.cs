@@ -278,10 +278,26 @@ namespace AccountingServices
             if (dt != null)
             {
                 // first add column names
+                /*
                 List<object> columnHeaders = dt.Columns.Cast<DataColumn>()
                 .Select(x => x.ColumnName)
                 .Cast<object>()
                 .ToList();
+                 */
+                // and build subtotal list
+                List<object> columnHeaders = new List<object>();
+                List<object> subTotalFooters = new List<object>();
+                int columnIndex = 0;
+                foreach (DataColumn column in dt.Columns)
+                {
+                    string columnName = column.ColumnName;
+                    columnHeaders.Add(columnName);
+
+                    // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
+                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}3:{0}174)", GetExcelColumnName(columnIndex)));
+
+                    columnIndex++;
+                }
                 values.Add(columnHeaders);
 
                 // then add row values
@@ -298,6 +314,9 @@ namespace AccountingServices
                      */
                     values.Add(rowValues);
                 }
+
+                // finally add the subtotal row
+                values.Add(subTotalFooters);
             }
 
             ValueRange valueRange = new ValueRange() { Values = values };
@@ -554,6 +573,22 @@ namespace AccountingServices
             };
 
             return c1;
+        }
+
+        public string GetExcelColumnName(int columnNumber)
+        {
+            int dividend = columnNumber;
+            string columnName = String.Empty;
+            int modulo;
+
+            while (dividend > 0)
+            {
+                modulo = (dividend - 1) % 26;
+                columnName = Convert.ToChar(65 + modulo).ToString() + columnName;
+                dividend = (int)((dividend - modulo) / 26);
+            }
+
+            return columnName;
         }
 
         public void Dispose()
