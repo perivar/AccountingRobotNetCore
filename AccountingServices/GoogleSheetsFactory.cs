@@ -119,7 +119,7 @@ namespace AccountingServices
             var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
             batchUpdateSpreadsheetRequest.Requests = new List<Request>();
 
-            // create the update request for cells from the first row
+            // create the update format request for cells matching the grid range
             var formatRequest = new Request()
             {
                 RepeatCell = new RepeatCellRequest()
@@ -144,6 +144,31 @@ namespace AccountingServices
             var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
             var batchUpdateResponse = batchUpdateRequest.Execute();
             Console.WriteLine("UpdateFormatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+        }
+
+        public void BatchUpdate(string sheetName)
+        {
+            var body = new BatchUpdateValuesRequest();
+            body.ValueInputOption = ((int)SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED).ToString();
+
+            List<ValueRange> valueRanges = new List<ValueRange>();
+            ValueRange valueRange = new ValueRange();
+            valueRange.Range = $"{sheetName}!A2:E2";
+
+            IList<IList<object>> values = new List<IList<object>>();
+            List<object> child = new List<object>();
+            for (int i = 0; i < 5; i++)
+            {
+                child.Add(i);
+            }
+            values.Add(child);
+            valueRange.Values = values;
+            valueRanges.Add(valueRange);
+            body.Data = valueRanges;
+
+            var batchUpdateRequest = service.Spreadsheets.Values.BatchUpdate(body, spreadsheetId);
+            var batchUpdateResponse = batchUpdateRequest.Execute();
+            Console.WriteLine("BatchUpdate:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
         }
 
         public void UpdateFormatting(int sheetId, int color)
@@ -283,12 +308,6 @@ namespace AccountingServices
             if (dt != null)
             {
                 // first add column names
-                /*
-                List<object> columnHeaders = dt.Columns.Cast<DataColumn>()
-                .Select(x => x.ColumnName)
-                .Cast<object>()
-                .ToList();
-                 */
                 // and build subtotal list
                 List<object> columnHeaders = new List<object>();
                 List<object> subTotalFooters = new List<object>();
@@ -299,7 +318,7 @@ namespace AccountingServices
                     columnHeaders.Add(columnName);
 
                     // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}{1}:{0}{2})", GetExcelColumnName(columnNumber), startRowIndex+2, endRowIndex+1));
+                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}{1}:{0}{2})", GetExcelColumnName(columnNumber), startRowIndex + 2, endRowIndex + 1));
 
                     columnNumber++;
                 }
@@ -309,14 +328,6 @@ namespace AccountingServices
                 foreach (DataRow row in dt.Rows)
                 {
                     List<object> rowValues = row.ItemArray.ToList();
-                    /*
-                    List<object> list = new List<object>();
-                    foreach (DataColumn col in dt.Columns)
-                    {
-                        var field = row[col].ToString();
-                        rowValues.Add(field);
-                    }
-                     */
                     values.Add(rowValues);
                 }
 

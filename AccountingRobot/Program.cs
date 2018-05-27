@@ -118,6 +118,9 @@ namespace AccountingRobot
             // Build Google Sheets spreadsheet 
             using (GoogleSheetsFactory googleFactory = new GoogleSheetsFactory())
             {
+                googleFactory.BatchUpdate(sheetName);
+                return;
+                
                 int sheetId = googleFactory.AddSheet(sheetName);
                 //int sheetId = googleFactory.GetSheetIdFromSheetName(sheetName);
                 //googleFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
