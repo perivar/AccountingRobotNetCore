@@ -274,6 +274,11 @@ namespace AccountingServices
         {
             var range = $"{sheetName}!A:A";
 
+            int startColumnIndex = 0;
+            int endColumnIndex = dt.Columns.Count + 1;
+            int startRowIndex = 1;
+            int endRowIndex = dt.Rows.Count + 1;
+
             IList<IList<Object>> values = new List<IList<Object>>();
             if (dt != null)
             {
@@ -287,16 +292,16 @@ namespace AccountingServices
                 // and build subtotal list
                 List<object> columnHeaders = new List<object>();
                 List<object> subTotalFooters = new List<object>();
-                int columnIndex = 0;
+                int columnNumber = 1;
                 foreach (DataColumn column in dt.Columns)
                 {
                     string columnName = column.ColumnName;
                     columnHeaders.Add(columnName);
 
                     // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}3:{0}174)", GetExcelColumnName(columnIndex)));
+                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}{1}:{0}{2})", GetExcelColumnName(columnNumber), startRowIndex+2, endRowIndex+1));
 
-                    columnIndex++;
+                    columnNumber++;
                 }
                 values.Add(columnHeaders);
 
@@ -329,11 +334,6 @@ namespace AccountingServices
 
             var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
             batchUpdateSpreadsheetRequest.Requests = new List<Request>();
-
-            int startColumnIndex = 0;
-            int endColumnIndex = dt.Columns.Count + 1;
-            int startRowIndex = 1;
-            int endRowIndex = dt.Rows.Count + 1;
 
             // define header cell format
             var userEnteredFormatHeader = new CellFormat()
