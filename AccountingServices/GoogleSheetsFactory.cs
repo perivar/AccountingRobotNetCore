@@ -441,6 +441,32 @@ namespace AccountingServices
                 };
                 batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
 
+                // insert formula in column 1
+                var formulaColumn1 = new Request()
+                {
+                    RepeatCell = new RepeatCellRequest()
+                    {
+                        Range = new GridRange()
+                        {
+                            SheetId = sheetId,
+                            StartColumnIndex = 0,
+                            EndColumnIndex = 1,
+                            StartRowIndex = startRowIndex + 1,
+                            EndRowIndex = endRowIndex
+                        },
+                        Cell = new CellData()
+                        {
+                            UserEnteredValue = new ExtendedValue()
+                            {
+                                FormulaValue = string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 2)
+                            }
+                        },
+                        Fields = "UserEnteredValue"
+                    }
+                };
+                batchUpdateSpreadsheetRequest.Requests.Add(formulaColumn1);
+
+
                 // auto resize the columns
                 var autoResizeRequest = new Request()
                 {
