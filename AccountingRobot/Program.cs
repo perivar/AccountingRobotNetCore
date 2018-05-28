@@ -118,12 +118,12 @@ namespace AccountingRobot
             // Build Google Sheets spreadsheet 
             using (GoogleSheetsFactory googleFactory = new GoogleSheetsFactory())
             {
-                googleFactory.BatchUpdate(sheetName);
-                return;
-                
                 int sheetId = googleFactory.AddSheet(sheetName);
                 //int sheetId = googleFactory.GetSheetIdFromSheetName(sheetName);
                 //googleFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
+
+                googleFactory.AppendDataTable(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xC5D9F1);
+                return;
 
                 // add accounting headers
                 var accountingHeaders = new string[50];
@@ -727,7 +727,7 @@ namespace AccountingRobot
         static DataTable GetDataTable(List<AccountingItem> accountingItems)
         {
             DataTable dt = new DataTable();
-            dt.Columns.Add("Kontroll", typeof(String));
+            dt.Columns.Add("Kontroll", typeof(string));
 
             dt.Columns.Add("Periode", typeof(int));
             dt.Columns.Add("Dato", typeof(DateTime));

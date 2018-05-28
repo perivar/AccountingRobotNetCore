@@ -146,128 +146,6 @@ namespace AccountingServices
             Console.WriteLine("UpdateFormatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
         }
 
-        public void BatchUpdate(string sheetName)
-        {
-            var body = new BatchUpdateValuesRequest();
-            body.ValueInputOption = ((int)SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED).ToString();
-
-            List<ValueRange> valueRanges = new List<ValueRange>();
-            ValueRange valueRange = new ValueRange();
-            valueRange.Range = $"{sheetName}!A2:E2";
-
-            IList<IList<object>> values = new List<IList<object>>();
-            List<object> child = new List<object>();
-            for (int i = 0; i < 5; i++)
-            {
-                child.Add(i);
-            }
-            values.Add(child);
-            valueRange.Values = values;
-            valueRanges.Add(valueRange);
-            body.Data = valueRanges;
-
-            var batchUpdateRequest = service.Spreadsheets.Values.BatchUpdate(body, spreadsheetId);
-            var batchUpdateResponse = batchUpdateRequest.Execute();
-            Console.WriteLine("BatchUpdate:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
-        }
-
-        public void UpdateFormatting(int sheetId, int color)
-        {
-            // https://developers.google.com/sheets/api/samples/formatting
-
-            // define cell color
-            var userEnteredFormat = new CellFormat()
-            {
-                BackgroundColor = GetColor(color),
-                TextFormat = new TextFormat()
-                {
-                    Bold = true
-                },
-                HorizontalAlignment = "CENTER",
-                Borders = new Borders()
-                {
-                    Bottom = new Border()
-                    {
-                        Style = "DASHED",
-                        Width = 2
-                    },
-                    Top = new Border()
-                    {
-                        Style = "DASHED",
-                        Width = 2
-                    }
-                }
-            };
-
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
-            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
-
-            // create the update request for cells from the first row
-            var formatRequest = new Request()
-            {
-                RepeatCell = new RepeatCellRequest()
-                {
-                    Range = new GridRange()
-                    {
-                        SheetId = sheetId,
-                        StartColumnIndex = 0,
-                        EndColumnIndex = 4,
-                        StartRowIndex = 0,
-                        EndRowIndex = 1
-                    },
-                    Cell = new CellData()
-                    {
-                        UserEnteredFormat = userEnteredFormat
-                    },
-                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
-                }
-            };
-            batchUpdateSpreadsheetRequest.Requests.Add(formatRequest);
-
-            // set basic filter for all rows except the last
-            var filterRequest = new Request()
-            {
-                SetBasicFilter = new SetBasicFilterRequest()
-                {
-                    Filter = new BasicFilter()
-                    {
-                        Criteria = null,
-                        SortSpecs = null,
-                        Range = new GridRange()
-                        {
-                            SheetId = sheetId,
-                            StartColumnIndex = 0,
-                            EndColumnIndex = 4,
-                            StartRowIndex = 0,
-                            EndRowIndex = 4
-                        }
-                    }
-                }
-            };
-            batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
-
-            /*
-            FilterCriteria criteria = new FilterCriteria();
-            criteria.Condition = new BooleanCondition();
-            criteria.Condition.Type = "NOT_BLANK";
-
-            var criteriaDictionary = new Dictionary<string, FilterCriteria>();
-            criteriaDictionary.Add("8", criteria); // define at which index the  filter is active
-
-            var filterRequest = new Request();
-            filterRequest.AddFilterView = new AddFilterViewRequest();
-            filterRequest.AddFilterView.Filter = new FilterView();
-            filterRequest.AddFilterView.Filter.FilterViewId = 0;
-            filterRequest.AddFilterView.Filter.Title = "Hide rows with errors";
-            filterRequest.AddFilterView.Filter.Range = range1;
-            filterRequest.AddFilterView.Filter.Criteria = criteriaDictionary;
-            batchUpdateSpreadsheetRequest.Requests.Add(request);
-             */
-
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-            batchUpdateRequest.Execute();
-        }
-
         public void DeleteRows(int sheetId, int rowStartIndex, int rowEndIndex)
         {
             Request requestBody = new Request()
@@ -475,6 +353,305 @@ namespace AccountingServices
             Console.WriteLine("AppendDataTable-Formatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
         }
 
+        public void AppendDataTable(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow)
+        {
+            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
+
+            if (dt != null)
+            {
+                foreach (DataColumn column in dt.Columns)
+                {
+                    string columnName = column.ColumnName;
+                }
+
+                foreach (DataRow row in dt.Rows)
+                {
+                    var appendCellsRequest = CreateAppendCellsRequest(sheetId, row);
+                    batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequest });
+                }
+
+                if (batchUpdateSpreadsheetRequest.Requests.Count() > 0)
+                {
+                    var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+                    var batchUpdateResponse = batchUpdateRequest.Execute();
+                    Console.WriteLine("AppendDataTable:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+                }
+            }
+        }
+
+        private AppendCellsRequest CreateAppendCellsRequest(int sheetId, DataRow row)
+        {
+            // https://github.com/opendatakit/aggregate/blob/master/src/main/java/org/opendatakit/aggregate/externalservice/GoogleSpreadsheet.java
+
+            // define row cell formats
+            var dateFormat = new CellFormat()
+            {
+                NumberFormat = new NumberFormat()
+                {
+                    Type = "DATE",
+                    Pattern = "dd.MM.yyyy"
+                }
+            };
+
+            var percentFormat = new CellFormat()
+            {
+                NumberFormat = new NumberFormat()
+                {
+                    Type = "NUMBER",
+                    Pattern = "##.#%"
+                }
+            };
+
+            var numberFormat = new CellFormat()
+            {
+                NumberFormat = new NumberFormat()
+                {
+                    Type = "NUMBER",
+                    Pattern = "#,##0.00;[Red]-#,##0.00;"
+                }
+            };
+
+            List<CellData> cells = new List<CellData>();
+            int index = 0;
+            foreach (var item in row.ItemArray)
+            {
+                index++;
+                //if (index == 26) break;
+
+                CellData cellData = new CellData();
+
+                if (item == null)
+                {
+                    cellData.UserEnteredValue = new ExtendedValue();
+                }
+                else
+                {
+                    ExtendedValue ev = null;
+                    switch (item)
+                    {
+                        case bool boolValue:
+                            ev = new ExtendedValue();
+                            ev.BoolValue = boolValue;
+                            cellData.UserEnteredValue = ev;
+                            break;
+                        case int intValue:
+                            ev = new ExtendedValue();
+                            ev.NumberValue = intValue;
+                            cellData.UserEnteredValue = ev;
+                            cellData.UserEnteredFormat = numberFormat;
+                            break;
+                        case decimal decimalValue:
+                            ev = new ExtendedValue();
+                            ev.NumberValue = (double)decimalValue;
+                            cellData.UserEnteredValue = ev;
+                            cellData.UserEnteredFormat = numberFormat;
+                            break;
+                        case DateTime dateTimeValue:
+                            ev = new ExtendedValue();
+                            // 04.05.2018  23:59:00
+                            // Google Sheets uses a form of epoch date that is commonly used in spreadsheets. 
+                            // The whole number portion of the value (left of the decimal) counts the days since 
+                            // December 30th 1899. The fractional portion (right of the decimal) 
+                            // counts the time as a fraction of one day. 
+                            // For example, January 1st 1900 at noon would be 2.5, 
+                            // 2 because it's two days after December 30th, 1899, 
+                            // and .5 because noon is half a day. 
+                            // February 1st 1900 at 3pm would be 33.625.
+                            ev.NumberValue = dateTimeValue.ToOADate();
+                            cellData.UserEnteredValue = ev;
+                            cellData.UserEnteredFormat = dateFormat;
+                            break;
+                        case string stringValue:
+                            ev = new ExtendedValue();
+                            ev.StringValue = stringValue;
+                            cellData.UserEnteredValue = ev;
+                            break;
+                        default:
+                            ev = new ExtendedValue();
+                            ev.StringValue = item.ToString();
+                            cellData.UserEnteredValue = ev;
+                            break;
+                    }
+                }
+                cells.Add(cellData);
+            }
+
+            var rowData = new RowData();
+            rowData.Values = cells;
+
+            var rows = new List<RowData>();
+            rows.Add(rowData);
+
+            AppendCellsRequest appendRequest = new AppendCellsRequest();
+            appendRequest.Fields = "*";
+            appendRequest.SheetId = sheetId;
+            appendRequest.Rows = rows;
+            return appendRequest;
+        }
+
+        public static Color GetColor(int argb)
+        {
+            System.Drawing.Color c = System.Drawing.Color.FromArgb(argb);
+
+            // convert to float values
+            var c1 = new Color()
+            {
+                Blue = (float)(c.B / 255.0f),
+                Red = (float)(c.R / 255.0f),
+                Green = (float)(c.G / 255.0f),
+                Alpha = (float)(c.A / 255.0f)
+            };
+
+            return c1;
+        }
+
+        public string GetExcelColumnName(int columnNumber)
+        {
+            int dividend = columnNumber;
+            string columnName = String.Empty;
+            int modulo;
+
+            while (dividend > 0)
+            {
+                modulo = (dividend - 1) % 26;
+                columnName = Convert.ToChar(65 + modulo).ToString() + columnName;
+                dividend = (int)((dividend - modulo) / 26);
+            }
+
+            return columnName;
+        }
+
+        public void Dispose()
+        {
+            service = null;
+        }
+
+
+        #region Methods for testing
+        public void UpdateFormatting(int sheetId, int color)
+        {
+            // https://developers.google.com/sheets/api/samples/formatting
+
+            // define cell color
+            var userEnteredFormat = new CellFormat()
+            {
+                BackgroundColor = GetColor(color),
+                TextFormat = new TextFormat()
+                {
+                    Bold = true
+                },
+                HorizontalAlignment = "CENTER",
+                Borders = new Borders()
+                {
+                    Bottom = new Border()
+                    {
+                        Style = "DASHED",
+                        Width = 2
+                    },
+                    Top = new Border()
+                    {
+                        Style = "DASHED",
+                        Width = 2
+                    }
+                }
+            };
+
+            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
+
+            // create the update request for cells from the first row
+            var formatRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = 0,
+                        EndColumnIndex = 4,
+                        StartRowIndex = 0,
+                        EndRowIndex = 1
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredFormat = userEnteredFormat
+                    },
+                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(formatRequest);
+
+            // set basic filter for all rows except the last
+            var filterRequest = new Request()
+            {
+                SetBasicFilter = new SetBasicFilterRequest()
+                {
+                    Filter = new BasicFilter()
+                    {
+                        Criteria = null,
+                        SortSpecs = null,
+                        Range = new GridRange()
+                        {
+                            SheetId = sheetId,
+                            StartColumnIndex = 0,
+                            EndColumnIndex = 4,
+                            StartRowIndex = 0,
+                            EndRowIndex = 4
+                        }
+                    }
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
+
+            /*
+            FilterCriteria criteria = new FilterCriteria();
+            criteria.Condition = new BooleanCondition();
+            criteria.Condition.Type = "NOT_BLANK";
+
+            var criteriaDictionary = new Dictionary<string, FilterCriteria>();
+            criteriaDictionary.Add("8", criteria); // define at which index the  filter is active
+
+            var filterRequest = new Request();
+            filterRequest.AddFilterView = new AddFilterViewRequest();
+            filterRequest.AddFilterView.Filter = new FilterView();
+            filterRequest.AddFilterView.Filter.FilterViewId = 0;
+            filterRequest.AddFilterView.Filter.Title = "Hide rows with errors";
+            filterRequest.AddFilterView.Filter.Range = range1;
+            filterRequest.AddFilterView.Filter.Criteria = criteriaDictionary;
+            batchUpdateSpreadsheetRequest.Requests.Add(request);
+             */
+
+            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+            batchUpdateRequest.Execute();
+        }
+
+        public void BatchValuesUpdate(string sheetName)
+        {
+            // BatchUpdateValuesRequest is used to update several value ranges in one go
+            var body = new BatchUpdateValuesRequest();
+            body.ValueInputOption = ((int)SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED).ToString();
+
+            List<ValueRange> valueRanges = new List<ValueRange>();
+            ValueRange valueRange = new ValueRange();
+            valueRange.Range = $"{sheetName}!A2:E2";
+
+            IList<IList<object>> values = new List<IList<object>>();
+            List<object> child = new List<object>();
+            for (int i = 0; i < 5; i++)
+            {
+                child.Add(i);
+            }
+            values.Add(child);
+            valueRange.Values = values;
+            valueRanges.Add(valueRange);
+            body.Data = valueRanges;
+
+            var batchUpdateRequest = service.Spreadsheets.Values.BatchUpdate(body, spreadsheetId);
+            var batchUpdateResponse = batchUpdateRequest.Execute();
+            Console.WriteLine("BatchUpdate:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+        }
+
         public void InsertDataTest(string sheetName)
         {
             var range = $"{sheetName}!A:A";
@@ -569,43 +746,6 @@ namespace AccountingServices
             request.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
             var response = request.Execute();
         }
-
-        public static Color GetColor(int argb)
-        {
-            System.Drawing.Color c = System.Drawing.Color.FromArgb(argb);
-
-            // convert to float values
-            var c1 = new Color()
-            {
-                Blue = (float)(c.B / 255.0f),
-                Red = (float)(c.R / 255.0f),
-                Green = (float)(c.G / 255.0f),
-                Alpha = (float)(c.A / 255.0f)
-            };
-
-            return c1;
-        }
-
-        public string GetExcelColumnName(int columnNumber)
-        {
-            int dividend = columnNumber;
-            string columnName = String.Empty;
-            int modulo;
-
-            while (dividend > 0)
-            {
-                modulo = (dividend - 1) % 26;
-                columnName = Convert.ToChar(65 + modulo).ToString() + columnName;
-                dividend = (int)((dividend - modulo) / 26);
-            }
-
-            return columnName;
-        }
-
-        public void Dispose()
-        {
-            service = null;
-
-        }
+        #endregion
     }
 }
