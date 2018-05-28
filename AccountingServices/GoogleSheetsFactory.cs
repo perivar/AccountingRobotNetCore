@@ -406,29 +406,66 @@ namespace AccountingServices
 
             if (dt != null)
             {
-                foreach (DataColumn column in dt.Columns)
-                {
-                    string columnName = column.ColumnName;
-                }
+                int startColumnIndex = 0;
+                int endColumnIndex = dt.Columns.Count + 1;
+                int startRowIndex = 0;
+                int endRowIndex = dt.Rows.Count + 1;
 
-                foreach (DataRow row in dt.Rows)
-                {
-                    var appendCellsRequest = CreateAppendCellRequest(sheetId, row);
-                    batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequest });
-                }
+                // append headers
+                var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, dt.Columns, fgColorHeader, bgColorHeader);
+                batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequestHeader });
 
-                if (batchUpdateSpreadsheetRequest.Requests.Count() > 0)
+                // append rows
+                var appendCellsRequest = CreateAppendCellRequest(sheetId, dt.Rows, fgColorRow, bgColorRow);
+                batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequest });
+
+                // set basic filter for all rows
+                var filterRequest = new Request()
                 {
-                    var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-                    var batchUpdateResponse = batchUpdateRequest.Execute();
-                    Console.WriteLine("AppendDataTable:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
-                }
+                    SetBasicFilter = new SetBasicFilterRequest()
+                    {
+                        Filter = new BasicFilter()
+                        {
+                            Criteria = null,
+                            SortSpecs = null,
+                            Range = new GridRange()
+                            {
+                                SheetId = sheetId,
+                                StartColumnIndex = startColumnIndex,
+                                EndColumnIndex = endColumnIndex,
+                                StartRowIndex = startRowIndex,
+                                EndRowIndex = endRowIndex
+                            }
+                        }
+                    }
+                };
+                batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
+
+                // auto resize the columns
+                var autoResizeRequest = new Request()
+                {
+                    AutoResizeDimensions = new AutoResizeDimensionsRequest()
+                    {
+                        Dimensions = new DimensionRange()
+                        {
+                            SheetId = sheetId,
+                            Dimension = "COLUMNS",
+                            StartIndex = startColumnIndex,
+                            EndIndex = endColumnIndex
+                        }
+                    }
+                };
+                batchUpdateSpreadsheetRequest.Requests.Add(autoResizeRequest);
+
+                var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+                var batchUpdateResponse = batchUpdateRequest.Execute();
+                Console.WriteLine("AppendDataTable:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
             }
         }
 
-        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, DataRow row)
+        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
         {
-            var rowData = CreateRowData(sheetId, row);
+            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader);
 
             var rowDataList = new List<RowData>();
             rowDataList.Add(rowData);
@@ -440,13 +477,43 @@ namespace AccountingServices
             return appendRequest;
         }
 
-        private static RowData CreateRowData(int sheetId, DataRow row)
+        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, DataRowCollection rows, int fgColorRow, int bgColorRow)
+        {
+            var rowDataList = new List<RowData>();
+            foreach (DataRow row in rows)
+            {
+                var rowData = CreateRowData(sheetId, row, fgColorRow, bgColorRow);
+                rowDataList.Add(rowData);
+            }
+
+            var appendRequest = new AppendCellsRequest();
+            appendRequest.SheetId = sheetId;
+            appendRequest.Rows = rowDataList;
+            appendRequest.Fields = "*";
+            return appendRequest;
+        }
+
+        private static RowData CreateRowData(int sheetId, DataRow row, int fgColorRow, int bgColorRow)
         {
             // https://github.com/opendatakit/aggregate/blob/master/src/main/java/org/opendatakit/aggregate/externalservice/GoogleSpreadsheet.java
 
             // define row cell formats
+            var stringFormat = new CellFormat()
+            {
+                BackgroundColor = GetColor(bgColorRow),
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorRow)
+                }
+            };
+
             var dateFormat = new CellFormat()
             {
+                BackgroundColor = GetColor(bgColorRow),
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorRow)
+                },
                 NumberFormat = new NumberFormat()
                 {
                     Type = "DATE",
@@ -456,6 +523,11 @@ namespace AccountingServices
 
             var percentFormat = new CellFormat()
             {
+                BackgroundColor = GetColor(bgColorRow),
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorRow)
+                },
                 NumberFormat = new NumberFormat()
                 {
                     Type = "NUMBER",
@@ -465,6 +537,11 @@ namespace AccountingServices
 
             var numberFormat = new CellFormat()
             {
+                BackgroundColor = GetColor(bgColorRow),
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorRow)
+                },
                 NumberFormat = new NumberFormat()
                 {
                     Type = "NUMBER",
@@ -489,6 +566,7 @@ namespace AccountingServices
                         case bool boolValue:
                             extendedValue.BoolValue = boolValue;
                             cellData.UserEnteredValue = extendedValue;
+                            cellData.UserEnteredFormat = stringFormat;
                             break;
                         case int intValue:
                             extendedValue.NumberValue = intValue;
@@ -517,14 +595,68 @@ namespace AccountingServices
                         case string stringValue:
                             extendedValue.StringValue = stringValue;
                             cellData.UserEnteredValue = extendedValue;
+                            cellData.UserEnteredFormat = stringFormat;
                             break;
                         default:
                             extendedValue.StringValue = item.ToString();
                             cellData.UserEnteredValue = extendedValue;
+                            cellData.UserEnteredFormat = stringFormat;
                             break;
                     }
                 }
 
+                cellDataList.Add(cellData);
+            }
+
+            var rowData = new RowData()
+            {
+                Values = cellDataList
+            };
+
+            return rowData;
+        }
+
+        private static RowData CreateRowData(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
+        {
+            // https://github.com/opendatakit/aggregate/blob/master/src/main/java/org/opendatakit/aggregate/externalservice/GoogleSpreadsheet.java
+
+            // define header cell format
+            var headerFormat = new CellFormat()
+            {
+                BackgroundColor = GetColor(bgColorHeader),
+                HorizontalAlignment = "CENTER",
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorHeader),
+                    FontSize = 11,
+                    Bold = true
+                },
+                Borders = new Borders()
+                {
+                    Bottom = new Border()
+                    {
+                        Style = "DASHED",
+                        Width = 2
+                    },
+                    Top = new Border()
+                    {
+                        Style = "DASHED",
+                        Width = 2
+                    }
+                }
+            };
+
+            var cellDataList = new List<CellData>();
+            foreach (DataColumn item in columns)
+            {
+                var cellData = new CellData();
+                cellData.UserEnteredValue = new ExtendedValue();
+
+                if (item != null)
+                {
+                    cellData.UserEnteredValue.StringValue = item.ColumnName;
+                    cellData.UserEnteredFormat = headerFormat;
+                }
                 cellDataList.Add(cellData);
             }
 
