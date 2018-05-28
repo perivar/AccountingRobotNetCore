@@ -120,8 +120,10 @@ namespace AccountingRobot
             {
                 int sheetId = googleFactory.AddSheet(sheetName);
                 //int sheetId = googleFactory.GetSheetIdFromSheetName(sheetName);
+                
                 //googleFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
 
+                googleFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
                 googleFactory.AppendDataTable(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xC5D9F1);
                 return;
 

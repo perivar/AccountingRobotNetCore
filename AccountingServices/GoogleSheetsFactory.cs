@@ -146,6 +146,52 @@ namespace AccountingServices
             Console.WriteLine("UpdateFormatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
         }
 
+        public void AppendColumns(int sheetId, int numberOfColumns)
+        {
+            Request requestBody = new Request()
+            {
+                AppendDimension = new AppendDimensionRequest()
+                {
+                    SheetId = sheetId,
+                    Dimension = "COLUMNS",
+                    Length = numberOfColumns
+                }
+            };
+
+            List<Request> requests = new List<Request>();
+            requests.Add(requestBody);
+
+            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = requests;
+
+            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+            var batchUpdateResponse = batchUpdateRequest.Execute();
+            Console.WriteLine("AppendColumns:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+        }
+
+        public void AppendRows(int sheetId, int numberOfRows)
+        {
+            Request requestBody = new Request()
+            {
+                AppendDimension = new AppendDimensionRequest()
+                {
+                    SheetId = sheetId,
+                    Dimension = "ROWS",
+                    Length = numberOfRows
+                }
+            };
+
+            List<Request> requests = new List<Request>();
+            requests.Add(requestBody);
+
+            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = requests;
+
+            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+            var batchUpdateResponse = batchUpdateRequest.Execute();
+            Console.WriteLine("AppendRows:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+        }
+
         public void DeleteRows(int sheetId, int rowStartIndex, int rowEndIndex)
         {
             Request requestBody = new Request()
@@ -170,7 +216,7 @@ namespace AccountingServices
 
             var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
             var batchUpdateResponse = batchUpdateRequest.Execute();
-            Console.WriteLine(JsonConvert.SerializeObject(batchUpdateResponse));
+            Console.WriteLine("DeleteRows:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
         }
 
         public void AppendDataTable(string sheetName, int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow)
@@ -367,7 +413,7 @@ namespace AccountingServices
 
                 foreach (DataRow row in dt.Rows)
                 {
-                    var appendCellsRequest = CreateAppendCellsRequest(sheetId, row);
+                    var appendCellsRequest = CreateAppendCellRequest(sheetId, row);
                     batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequest });
                 }
 
@@ -380,7 +426,21 @@ namespace AccountingServices
             }
         }
 
-        private AppendCellsRequest CreateAppendCellsRequest(int sheetId, DataRow row)
+        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, DataRow row)
+        {
+            var rowData = CreateRowData(sheetId, row);
+
+            var rowDataList = new List<RowData>();
+            rowDataList.Add(rowData);
+
+            var appendRequest = new AppendCellsRequest();
+            appendRequest.SheetId = sheetId;
+            appendRequest.Rows = rowDataList;
+            appendRequest.Fields = "*";
+            return appendRequest;
+        }
+
+        private static RowData CreateRowData(int sheetId, DataRow row)
         {
             // https://github.com/opendatakit/aggregate/blob/master/src/main/java/org/opendatakit/aggregate/externalservice/GoogleSpreadsheet.java
 
@@ -412,14 +472,10 @@ namespace AccountingServices
                 }
             };
 
-            List<CellData> cells = new List<CellData>();
-            int index = 0;
+            var cellDataList = new List<CellData>();
             foreach (var item in row.ItemArray)
             {
-                index++;
-                //if (index == 26) break;
-
-                CellData cellData = new CellData();
+                var cellData = new CellData();
 
                 if (item == null)
                 {
@@ -427,28 +483,24 @@ namespace AccountingServices
                 }
                 else
                 {
-                    ExtendedValue ev = null;
+                    var extendedValue = new ExtendedValue();
                     switch (item)
                     {
                         case bool boolValue:
-                            ev = new ExtendedValue();
-                            ev.BoolValue = boolValue;
-                            cellData.UserEnteredValue = ev;
+                            extendedValue.BoolValue = boolValue;
+                            cellData.UserEnteredValue = extendedValue;
                             break;
                         case int intValue:
-                            ev = new ExtendedValue();
-                            ev.NumberValue = intValue;
-                            cellData.UserEnteredValue = ev;
+                            extendedValue.NumberValue = intValue;
+                            cellData.UserEnteredValue = extendedValue;
                             cellData.UserEnteredFormat = numberFormat;
                             break;
                         case decimal decimalValue:
-                            ev = new ExtendedValue();
-                            ev.NumberValue = (double)decimalValue;
-                            cellData.UserEnteredValue = ev;
+                            extendedValue.NumberValue = (double)decimalValue;
+                            cellData.UserEnteredValue = extendedValue;
                             cellData.UserEnteredFormat = numberFormat;
                             break;
                         case DateTime dateTimeValue:
-                            ev = new ExtendedValue();
                             // 04.05.2018  23:59:00
                             // Google Sheets uses a form of epoch date that is commonly used in spreadsheets. 
                             // The whole number portion of the value (left of the decimal) counts the days since 
@@ -458,36 +510,30 @@ namespace AccountingServices
                             // 2 because it's two days after December 30th, 1899, 
                             // and .5 because noon is half a day. 
                             // February 1st 1900 at 3pm would be 33.625.
-                            ev.NumberValue = dateTimeValue.ToOADate();
-                            cellData.UserEnteredValue = ev;
+                            extendedValue.NumberValue = dateTimeValue.ToOADate();
+                            cellData.UserEnteredValue = extendedValue;
                             cellData.UserEnteredFormat = dateFormat;
                             break;
                         case string stringValue:
-                            ev = new ExtendedValue();
-                            ev.StringValue = stringValue;
-                            cellData.UserEnteredValue = ev;
+                            extendedValue.StringValue = stringValue;
+                            cellData.UserEnteredValue = extendedValue;
                             break;
                         default:
-                            ev = new ExtendedValue();
-                            ev.StringValue = item.ToString();
-                            cellData.UserEnteredValue = ev;
+                            extendedValue.StringValue = item.ToString();
+                            cellData.UserEnteredValue = extendedValue;
                             break;
                     }
                 }
-                cells.Add(cellData);
+
+                cellDataList.Add(cellData);
             }
 
-            var rowData = new RowData();
-            rowData.Values = cells;
+            var rowData = new RowData()
+            {
+                Values = cellDataList
+            };
 
-            var rows = new List<RowData>();
-            rows.Add(rowData);
-
-            AppendCellsRequest appendRequest = new AppendCellsRequest();
-            appendRequest.Fields = "*";
-            appendRequest.SheetId = sheetId;
-            appendRequest.Rows = rows;
-            return appendRequest;
+            return rowData;
         }
 
         public static Color GetColor(int argb)
