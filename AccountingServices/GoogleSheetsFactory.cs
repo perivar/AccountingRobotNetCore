@@ -399,7 +399,7 @@ namespace AccountingServices
             Console.WriteLine("AppendDataTable-Formatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
         }
 
-        public void AppendDataTable(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow)
+        public void AppendDataTable(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool autoResizeColumns = true)
         {
             var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
             batchUpdateSpreadsheetRequest.Requests = new List<Request>();
@@ -420,73 +420,99 @@ namespace AccountingServices
                 batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequest });
 
                 // set basic filter for all rows
-                var filterRequest = new Request()
-                {
-                    SetBasicFilter = new SetBasicFilterRequest()
-                    {
-                        Filter = new BasicFilter()
-                        {
-                            Criteria = null,
-                            SortSpecs = null,
-                            Range = new GridRange()
-                            {
-                                SheetId = sheetId,
-                                StartColumnIndex = startColumnIndex,
-                                EndColumnIndex = endColumnIndex,
-                                StartRowIndex = startRowIndex,
-                                EndRowIndex = endRowIndex
-                            }
-                        }
-                    }
-                };
-                batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
+                batchUpdateSpreadsheetRequest.Requests.Add(
+                    GetBasicFilterRequest(sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex)
+                );
 
                 // insert formula in column 1
-                var formulaColumn1 = new Request()
-                {
-                    RepeatCell = new RepeatCellRequest()
-                    {
-                        Range = new GridRange()
-                        {
-                            SheetId = sheetId,
-                            StartColumnIndex = 0,
-                            EndColumnIndex = 1,
-                            StartRowIndex = startRowIndex + 1,
-                            EndRowIndex = endRowIndex
-                        },
-                        Cell = new CellData()
-                        {
-                            UserEnteredValue = new ExtendedValue()
-                            {
-                                FormulaValue = string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 2)
-                            }
-                        },
-                        Fields = "UserEnteredValue"
-                    }
-                };
-                batchUpdateSpreadsheetRequest.Requests.Add(formulaColumn1);
+                batchUpdateSpreadsheetRequest.Requests.Add(
+                    GetFormulaRequest(sheetId,
+                    string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 2),
+                    startRowIndex + 1, endRowIndex + 1, 0, 1)
+                );
 
-
-                // auto resize the columns
-                var autoResizeRequest = new Request()
+                if (autoResizeColumns)
                 {
-                    AutoResizeDimensions = new AutoResizeDimensionsRequest()
-                    {
-                        Dimensions = new DimensionRange()
-                        {
-                            SheetId = sheetId,
-                            Dimension = "COLUMNS",
-                            StartIndex = startColumnIndex,
-                            EndIndex = endColumnIndex
-                        }
-                    }
-                };
-                batchUpdateSpreadsheetRequest.Requests.Add(autoResizeRequest);
+                    // auto resize columns
+                    batchUpdateSpreadsheetRequest.Requests.Add(
+                        GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex)
+                    );
+                }
 
                 var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
                 var batchUpdateResponse = batchUpdateRequest.Execute();
                 Console.WriteLine("AppendDataTable:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
             }
+        }
+
+        private static Request GetBasicFilterRequest(int sheetId, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
+        {
+            var filterRequest = new Request()
+            {
+                SetBasicFilter = new SetBasicFilterRequest()
+                {
+                    Filter = new BasicFilter()
+                    {
+                        Criteria = null,
+                        SortSpecs = null,
+                        Range = new GridRange()
+                        {
+                            SheetId = sheetId,
+                            StartColumnIndex = startColumnIndex,
+                            EndColumnIndex = endColumnIndex,
+                            StartRowIndex = startRowIndex,
+                            EndRowIndex = endRowIndex
+                        }
+                    }
+                }
+            };
+            return filterRequest;
+        }
+
+        private static Request GetAutoResizeColumnsRequest(int sheetId, int startColumnIndex, int endColumnIndex)
+        {
+            // auto resize the columns
+            var autoResizeRequest = new Request()
+            {
+                AutoResizeDimensions = new AutoResizeDimensionsRequest()
+                {
+                    Dimensions = new DimensionRange()
+                    {
+                        SheetId = sheetId,
+                        Dimension = "COLUMNS",
+                        StartIndex = startColumnIndex,
+                        EndIndex = endColumnIndex
+                    }
+                }
+            };
+            return autoResizeRequest;
+        }
+
+        private static Request GetFormulaRequest(int sheetId, string formulaValue, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
+        {
+            var formulaRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex,
+                        EndRowIndex = endRowIndex
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredValue = new ExtendedValue()
+                        {
+                            FormulaValue = formulaValue
+                        }
+                    },
+                    Fields = "UserEnteredValue"
+                }
+            };
+            return formulaRequest;
         }
 
         private static AppendCellsRequest CreateAppendCellRequest(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
