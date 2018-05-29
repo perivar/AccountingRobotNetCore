@@ -197,8 +197,9 @@ namespace AccountingRobot
 
                     // insert control formula in column 1
                     googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        GoogleSheetsRequests.GetFormulaAndTextFormatRequest(sheetId,
                         string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 3),
+                        0xFF0000, 0xCCCCCC,
                         startRowIndex + 2, endRowIndex + 1, 0, 1)
                     );
 

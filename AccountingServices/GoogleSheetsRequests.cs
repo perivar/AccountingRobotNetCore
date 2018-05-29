@@ -208,6 +208,45 @@ namespace AccountingServices
             return formulaRequest;
         }
 
+        public static Request GetFormulaAndTextFormatRequest(int sheetId, string formulaValue, int fgColor, int bgColor, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
+        {
+            var userEnteredFormat = new CellFormat()
+            {
+                BackgroundColor = GoogleSheetsRequests.GetColor(bgColor),
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsRequests.GetColor(fgColor),
+                    FontSize = 11,
+                    Bold = true
+                }
+            };
+
+            var formulaRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex,
+                        EndRowIndex = endRowIndex
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredValue = new ExtendedValue()
+                        {
+                            FormulaValue = formulaValue,
+                        },
+                        UserEnteredFormat = userEnteredFormat
+                    },
+                    Fields = "UserEnteredValue,UserEnteredFormat"
+                }
+            };
+            return formulaRequest;
+        }
+
         public static Request GetFormatRequest(int sheetId, int fgColor, int bgColor, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
         {
             // define format
@@ -530,8 +569,8 @@ namespace AccountingServices
                 if (item != null)
                 {
                     cellData.UserEnteredValue.StringValue = item;
-                    cellData.UserEnteredFormat = headerFormat;
                 }
+                cellData.UserEnteredFormat = headerFormat;
                 cellDataList.Add(cellData);
             }
 
