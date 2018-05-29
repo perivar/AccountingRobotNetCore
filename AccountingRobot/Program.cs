@@ -113,7 +113,7 @@ namespace AccountingRobot
         private static string[] GetAccountingHeaders()
         {
             // add accounting headers
-            var accountingHeaders = new string[50];
+            var accountingHeaders = new string[53];
             accountingHeaders[0] = "Næringsoppgave";
             accountingHeaders[16] = "1910";
             accountingHeaders[17] = "1912";
