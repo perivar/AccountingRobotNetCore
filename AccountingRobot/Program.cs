@@ -110,84 +110,109 @@ namespace AccountingRobot
         }
 
         #region Google Sheets Methods
+        private static string[] GetAccountingHeaders()
+        {
+            // add accounting headers
+            var accountingHeaders = new string[50];
+            accountingHeaders[0] = "Næringsoppgave";
+            accountingHeaders[16] = "1910";
+            accountingHeaders[17] = "1912";
+            accountingHeaders[18] = "1914";
+            accountingHeaders[19] = "1920";
+
+            accountingHeaders[22] = "2740";
+            accountingHeaders[23] = "3000";
+            accountingHeaders[24] = "3100";
+            accountingHeaders[25] = "4005";
+            accountingHeaders[26] = "4300";
+            accountingHeaders[27] = "5000";
+            accountingHeaders[28] = "5400";
+            accountingHeaders[29] = "6000";
+            accountingHeaders[30] = "6100";
+            accountingHeaders[31] = "6340";
+            accountingHeaders[32] = "6500";
+            accountingHeaders[33] = "6695";
+            accountingHeaders[34] = "6800";
+            accountingHeaders[35] = "6810";
+            accountingHeaders[36] = "6900";
+            accountingHeaders[37] = "7098";
+            accountingHeaders[38] = "7140";
+            accountingHeaders[39] = "7330";
+            accountingHeaders[40] = "7700";
+            accountingHeaders[41] = "7770";
+            accountingHeaders[42] = "7780";
+            accountingHeaders[43] = "7785";
+            accountingHeaders[44] = "7790";
+            accountingHeaders[45] = "8099";
+            accountingHeaders[46] = "8199";
+            accountingHeaders[47] = "1200";
+            accountingHeaders[48] = "1500";
+            return accountingHeaders;
+        }
+
         static void ExportToGoogleSheets(List<AccountingItem> accountingItems)
         {
             string sheetName = "BILAGSJOURNAL2";
             var dt = GetDataTable(accountingItems);
 
+            if (dt == null) return;
+
             // Build Google Sheets spreadsheet 
-            using (GoogleSheetsFactory googleFactory = new GoogleSheetsFactory())
+            using (var googleSheetsFactory = new GoogleSheetsFactory())
             {
-                int sheetId = googleFactory.AddSheet(sheetName, dt.Columns.Count);
-                //int sheetId = googleFactory.GetSheetIdFromSheetName(sheetName);
-                //googleFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
-                //googleFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
+                int sheetId = googleSheetsFactory.AddSheet(sheetName, dt.Columns.Count);
+                //int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(sheetName);
+                //googleSheetsFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
+                //googleSheetsFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
+
+                int startColumnIndex = 0;
+                int endColumnIndex = dt.Columns.Count + 1;
+                int startRowIndex = 0;
+                int endRowIndex = dt.Rows.Count + 1;
 
                 using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
                 {
-                    googleBatchUpdateRequest.Add(googleFactory.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1));
+                    // append headers
+                    var accountingHeaders = GetAccountingHeaders();
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0x000000, 0xFFFFFF));
+
+                    // append data table in row 2
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1));
+
+                    // set basic filter for all rows
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 1, startColumnIndex, endColumnIndex));
+
+                    // auto resize columns
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex));
+
+                    // insert control formula in column 1
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 3),
+                        startRowIndex + 2, endRowIndex + 1, 0, 1)
+                    );
+
+                    // insert sum pre rounding formula in next last column 
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        string.Format("=SUM(Q{0}:AY{0})", startRowIndex + 3),
+                        startRowIndex + 2, endRowIndex + 1, endColumnIndex - 3, endColumnIndex - 2)
+                    );
+
+                    // insert sum rounding formula in last column
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        string.Format("=ROUND(AZ{0};2)", startRowIndex + 3),
+                        startRowIndex + 2, endRowIndex + 1, endColumnIndex - 2, endColumnIndex - 1)
+                    );
+
+                    //string vatSales = string.Format("=-(O{0}/1.25)*0.25", currentRow);
+                    //string salesVATExempt = string.Format("=-(O{0}/1.25)", currentRow);
 
                     googleBatchUpdateRequest.Execute();
                 }
 
                 return;
-
-                // add accounting headers
-                var accountingHeaders = new string[50];
-                accountingHeaders[0] = "Næringsoppgave";
-                accountingHeaders[16] = "1910";
-                accountingHeaders[17] = "1912";
-                accountingHeaders[18] = "1914";
-                accountingHeaders[19] = "1920";
-
-                accountingHeaders[22] = "2740";
-                accountingHeaders[23] = "3000";
-                accountingHeaders[24] = "3100";
-                accountingHeaders[25] = "4005";
-                accountingHeaders[26] = "4300";
-                accountingHeaders[27] = "5000";
-                accountingHeaders[28] = "5400";
-                accountingHeaders[29] = "6000";
-                accountingHeaders[30] = "6100";
-                accountingHeaders[31] = "6340";
-                accountingHeaders[32] = "6500";
-                accountingHeaders[33] = "6695";
-                accountingHeaders[34] = "6800";
-                accountingHeaders[35] = "6810";
-                accountingHeaders[36] = "6900";
-                accountingHeaders[37] = "7098";
-                accountingHeaders[38] = "7140";
-                accountingHeaders[39] = "7330";
-                accountingHeaders[40] = "7700";
-                accountingHeaders[41] = "7770";
-                accountingHeaders[42] = "7780";
-                accountingHeaders[43] = "7785";
-                accountingHeaders[44] = "7790";
-                accountingHeaders[45] = "8099";
-                accountingHeaders[46] = "8199";
-                accountingHeaders[47] = "1200";
-                accountingHeaders[48] = "1500";
-                var headerRange = "A1:BA1";
-                googleFactory.UpdateRow(sheetName, headerRange, accountingHeaders);
-
-                // set font color for header range
-                var userEnteredFormat = new CellFormat()
-                {
-                    BackgroundColor = GoogleSheetsFactory.GetColor(0x000000),
-                    HorizontalAlignment = "CENTER",
-                    TextFormat = new TextFormat()
-                    {
-                        ForegroundColor = GoogleSheetsFactory.GetColor(0xFFFFFF),
-                        FontSize = 11,
-                        Bold = true
-                    }
-                };
-                googleFactory.UpdateFormatting(sheetId, userEnteredFormat, 54, 1);
-
-                // insert datatable in row 2
-                googleFactory.AppendDataTable(sheetName, sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xC5D9F1);
-
-                //table.Theme = XLTableTheme.TableStyleLight16;
 
                 // turn on table total rows and set the functions for each of the relevant columns
                 //SetExcelTableTotalsRowFunction(table);
