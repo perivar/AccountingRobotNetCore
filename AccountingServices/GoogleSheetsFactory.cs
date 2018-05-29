@@ -134,7 +134,7 @@ namespace AccountingServices
                     columnHeaders.Add(columnName);
 
                     // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}{1}:{0}{2})", GoogleSheetsRequests.GetExcelColumnName(columnNumber), startRowIndex + 2, endRowIndex + 1));
+                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}{1}:{0}{2})", GoogleSheetsRequests.ColumnAddress(columnNumber), startRowIndex + 2, endRowIndex + 1));
 
                     columnNumber++;
                 }

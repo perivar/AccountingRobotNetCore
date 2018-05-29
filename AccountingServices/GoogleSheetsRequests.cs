@@ -171,6 +171,106 @@ namespace AccountingServices
             return formulaRequest;
         }
 
+        public static Request GetFormulaAndNumberFormatRequest(int sheetId, string formulaValue, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
+        {
+            var numberFormat = new CellFormat()
+            {
+                NumberFormat = new NumberFormat()
+                {
+                    Type = "NUMBER",
+                    Pattern = "#,##0.00;[Red]-#,##0.00;"
+                }
+            };
+
+            var formulaRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex,
+                        EndRowIndex = endRowIndex
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredValue = new ExtendedValue()
+                        {
+                            FormulaValue = formulaValue,
+                        },
+                        UserEnteredFormat = numberFormat
+                    },
+                    Fields = "UserEnteredValue,UserEnteredFormat"
+                }
+            };
+            return formulaRequest;
+        }
+
+        public static Request GetFormatRequest(int sheetId, int fgColor, int bgColor, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
+        {
+            // define format
+            var userEnteredFormat = new CellFormat()
+            {
+                BackgroundColor = GoogleSheetsRequests.GetColor(bgColor),
+                HorizontalAlignment = "LEFT",
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsRequests.GetColor(fgColor),
+                    FontSize = 11,
+                    Bold = false
+                }
+                /*,
+                Borders = new Borders()
+                {
+                    Top = new Border()
+                    {
+                        Style = "SOLID",
+                        Width = 1
+                    },
+                    Left = new Border()
+                    {
+                        Style = "SOLID",
+                        Width = 1
+                    },
+                    Bottom = new Border()
+                    {
+                        Style = "SOLID",
+                        Width = 1
+                    },
+                    Right = new Border()
+                    {
+                        Style = "SOLID",
+                        Width = 1
+                    },
+                }
+                */
+            };
+
+            // create the request
+            var formatRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex,
+                        EndRowIndex = endRowIndex
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredFormat = userEnteredFormat
+                    },
+                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
+                }
+            };
+            return formatRequest;
+        }
+
         #region Append Cell Request and Data Table Request
         private static AppendCellsRequest CreateAppendCellRequest(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader)
         {
@@ -460,7 +560,7 @@ namespace AccountingServices
             return c1;
         }
 
-        public static string GetExcelColumnName(int columnNumber)
+        public static string ColumnAddress(int columnNumber)
         {
             int dividend = columnNumber;
             string columnName = String.Empty;
@@ -474,6 +574,22 @@ namespace AccountingServices
             }
 
             return columnName;
+        }
+
+        public static int ColumnNumber(string columnAddress)
+        {
+            int[] digits = new int[columnAddress.Length];
+            for (int i = 0; i < columnAddress.Length; ++i)
+            {
+                digits[i] = Convert.ToInt32(columnAddress[i]) - 64;
+            }
+            int mul = 1; int res = 0;
+            for (int pos = digits.Length - 1; pos >= 0; --pos)
+            {
+                res += digits[pos] * mul;
+                mul *= 26;
+            }
+            return res;
         }
     }
 }

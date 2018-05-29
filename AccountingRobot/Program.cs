@@ -174,7 +174,7 @@ namespace AccountingRobot
                 {
                     // append headers
                     var accountingHeaders = GetAccountingHeaders();
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0x000000, 0xFFFFFF));
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
 
                     // append data table in row 2
                     googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1));
@@ -185,6 +185,16 @@ namespace AccountingRobot
                     // auto resize columns
                     googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex));
 
+                    // insert subtotal in last row
+                    // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
+                    int firstColIndex = GoogleSheetsRequests.ColumnNumber("Q") - 1;
+                    int lastColIndex = GoogleSheetsRequests.ColumnNumber("AY");
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                        string.Format("=SUBTOTAL(109;Q3:Q{0})", endRowIndex + 1),
+                        endRowIndex + 1, endRowIndex + 2, firstColIndex, lastColIndex)
+                    );
+
                     // insert control formula in column 1
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.GetFormulaRequest(sheetId,
@@ -194,16 +204,43 @@ namespace AccountingRobot
 
                     // insert sum pre rounding formula in next last column 
                     googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
                         string.Format("=SUM(Q{0}:AY{0})", startRowIndex + 3),
                         startRowIndex + 2, endRowIndex + 1, endColumnIndex - 3, endColumnIndex - 2)
                     );
 
                     // insert sum rounding formula in last column
                     googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
                         string.Format("=ROUND(AZ{0};2)", startRowIndex + 3),
                         startRowIndex + 2, endRowIndex + 1, endColumnIndex - 2, endColumnIndex - 1)
+                    );
+
+                    // set colors green
+                    int firstColIndexColor = GoogleSheetsRequests.ColumnNumber("U") - 1;
+                    int lastColIndexColor = GoogleSheetsRequests.ColumnNumber("V");
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormatRequest(sheetId,
+                        0x000000, 0xEBF1DE,
+                        startRowIndex + 2, endRowIndex + 1, firstColIndexColor, lastColIndexColor)
+                    );
+
+                    // set colors blue
+                    int firstColIndexColor2 = GoogleSheetsRequests.ColumnNumber("AV") - 1;
+                    int lastColIndexColor2 = GoogleSheetsRequests.ColumnNumber("AY");
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormatRequest(sheetId,
+                        0x000000, 0xC5D9F1,
+                        startRowIndex + 2, endRowIndex + 1, firstColIndexColor2, lastColIndexColor2)
+                    );
+
+                    // set colors red
+                    int firstColIndexColor3 = GoogleSheetsRequests.ColumnNumber("AZ") - 1;
+                    int lastColIndexColor3 = GoogleSheetsRequests.ColumnNumber("BA");
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormatRequest(sheetId,
+                        0x000000, 0xF2DCDB,
+                        startRowIndex + 2, endRowIndex + 1, firstColIndexColor3, lastColIndexColor3)
                     );
 
                     //string vatSales = string.Format("=-(O{0}/1.25)*0.25", currentRow);
@@ -211,8 +248,6 @@ namespace AccountingRobot
 
                     googleBatchUpdateRequest.Execute();
                 }
-
-                return;
 
                 // turn on table total rows and set the functions for each of the relevant columns
                 //SetExcelTableTotalsRowFunction(table);
