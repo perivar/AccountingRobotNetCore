@@ -118,13 +118,18 @@ namespace AccountingRobot
             // Build Google Sheets spreadsheet 
             using (GoogleSheetsFactory googleFactory = new GoogleSheetsFactory())
             {
-                int sheetId = googleFactory.AddSheet(sheetName);
+                int sheetId = googleFactory.AddSheet(sheetName, dt.Columns.Count);
                 //int sheetId = googleFactory.GetSheetIdFromSheetName(sheetName);
-
                 //googleFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
+                //googleFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
 
-                googleFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
-                googleFactory.AppendDataTable(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1);
+                using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
+                {
+                    googleBatchUpdateRequest.Add(googleFactory.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1));
+
+                    googleBatchUpdateRequest.Execute();
+                }
+
                 return;
 
                 // add accounting headers

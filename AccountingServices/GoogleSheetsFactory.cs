@@ -13,10 +13,10 @@ namespace AccountingServices
 {
     public class GoogleSheetsFactory : IDisposable
     {
-        static readonly string[] scopes = { SheetsService.Scope.Spreadsheets };
-        static readonly string applicationName = "Wazalo Accounting";
-        static readonly string spreadsheetId = "1mGFDwqV0rb707hkdCEwytA5-JzWOC8dH3Keb6ipV8L8";
-        static SheetsService service;
+        public static readonly string[] SCOPES = { SheetsService.Scope.Spreadsheets };
+        public static readonly string APPLICATION_NAME = "Wazalo Accounting";
+        public static readonly string SPREADSHEET_ID = "1mGFDwqV0rb707hkdCEwytA5-JzWOC8dH3Keb6ipV8L8";
+        public SheetsService Service { get; set; }
 
         public GoogleSheetsFactory()
         {
@@ -24,21 +24,21 @@ namespace AccountingServices
             using (var stream = new FileStream("google_client_secret.json", FileMode.Open, FileAccess.Read))
             {
                 credential = GoogleCredential.FromStream(stream)
-                  .CreateScoped(scopes);
+                  .CreateScoped(SCOPES);
             }
 
             // Create Google Sheets API service.
-            service = new SheetsService(new BaseClientService.Initializer()
+            this.Service = new SheetsService(new BaseClientService.Initializer()
             {
                 HttpClientInitializer = credential,
-                ApplicationName = applicationName,
+                ApplicationName = APPLICATION_NAME,
             });
         }
 
         public int GetSheetIdFromSheetName(string sheetName)
         {
             // get sheet id by sheet name
-            var spreadsheet = service.Spreadsheets.Get(spreadsheetId).Execute();
+            var spreadsheet = Service.Spreadsheets.Get(SPREADSHEET_ID).Execute();
             var sheet = spreadsheet.Sheets.Where(s => s.Properties.Title == sheetName).FirstOrDefault();
             int sheetId = (int)sheet.Properties.SheetId;
 
@@ -48,34 +48,26 @@ namespace AccountingServices
         public Sheet GetSheetFromSheetName(string sheetName)
         {
             // get sheet id by sheet name
-            var spreadsheet = service.Spreadsheets.Get(spreadsheetId).Execute();
+            var spreadsheet = Service.Spreadsheets.Get(SPREADSHEET_ID).Execute();
             var sheet = spreadsheet.Sheets.Where(s => s.Properties.Title == sheetName).FirstOrDefault();
             return sheet;
         }
 
-        public int AddSheet(string sheetName)
+        public int AddSheet(string sheetName, int columnCount = 26)
         {
-            // add new sheet
-            var addSheetRequest = new AddSheetRequest();
-            addSheetRequest.Properties = new SheetProperties();
-            addSheetRequest.Properties.Title = sheetName;
-
             var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
             batchUpdateSpreadsheetRequest.Requests = new List<Request>();
-            batchUpdateSpreadsheetRequest.Requests.Add(new Request
-            {
-                AddSheet = addSheetRequest
-            });
 
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+            // add the add sheet request
+            batchUpdateSpreadsheetRequest.Requests.Add(GetAddSheetRequest(sheetName, columnCount));
 
+            var batchUpdateRequest = Service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, SPREADSHEET_ID);
             var response = batchUpdateRequest.Execute();
             if (response.Replies.Count() > 0)
             {
                 AddSheetResponse addSheetResponse = (AddSheetResponse)response.Replies.FirstOrDefault().AddSheet;
                 return addSheetResponse.Properties.SheetId.Value;
             }
-
             return -1;
         }
 
@@ -89,7 +81,7 @@ namespace AccountingServices
             List<object> oblist = rowData.Cast<object>().ToList();
             valueRange.Values = new List<IList<object>> { oblist };
 
-            var appendRequest = service.Spreadsheets.Values.Append(valueRange, spreadsheetId, range);
+            var appendRequest = Service.Spreadsheets.Values.Append(valueRange, SPREADSHEET_ID, range);
             appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
             appendRequest.InsertDataOption = SpreadsheetsResource.ValuesResource.AppendRequest.InsertDataOptionEnum.INSERTROWS;
             var appendResponse = appendRequest.Execute();
@@ -106,49 +98,15 @@ namespace AccountingServices
             List<object> oblist = rowData.Cast<object>().ToList();
             valueRange.Values = new List<IList<object>> { oblist };
 
-            var updateRequest = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, range);
+            var updateRequest = Service.Spreadsheets.Values.Update(valueRange, SPREADSHEET_ID, range);
             updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
             var updateResponse = updateRequest.Execute();
             Console.WriteLine("UpdateRow:\n" + JsonConvert.SerializeObject(updateResponse));
         }
 
-        public void UpdateFormatting(int sheetId, CellFormat userEnteredFormat, int endColumnIndex, int endRowIndex, int startColumnIndex = 0, int startRowIndex = 0)
+        public Request GetAppendColumnsRequest(int sheetId, int numberOfColumns)
         {
-            // https://developers.google.com/sheets/api/samples/formatting
-
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
-            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
-
-            // create the update format request for cells matching the grid range
-            var formatRequest = new Request()
-            {
-                RepeatCell = new RepeatCellRequest()
-                {
-                    Range = new GridRange()
-                    {
-                        SheetId = sheetId,
-                        StartColumnIndex = startColumnIndex,
-                        EndColumnIndex = endColumnIndex,
-                        StartRowIndex = startRowIndex,
-                        EndRowIndex = endRowIndex
-                    },
-                    Cell = new CellData()
-                    {
-                        UserEnteredFormat = userEnteredFormat
-                    },
-                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
-                }
-            };
-            batchUpdateSpreadsheetRequest.Requests.Add(formatRequest);
-
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-            var batchUpdateResponse = batchUpdateRequest.Execute();
-            Console.WriteLine("UpdateFormatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
-        }
-
-        public void AppendColumns(int sheetId, int numberOfColumns)
-        {
-            Request requestBody = new Request()
+            Request appendColumnsRequest = new Request()
             {
                 AppendDimension = new AppendDimensionRequest()
                 {
@@ -157,21 +115,12 @@ namespace AccountingServices
                     Length = numberOfColumns
                 }
             };
-
-            List<Request> requests = new List<Request>();
-            requests.Add(requestBody);
-
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
-            batchUpdateSpreadsheetRequest.Requests = requests;
-
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-            var batchUpdateResponse = batchUpdateRequest.Execute();
-            Console.WriteLine("AppendColumns:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+            return appendColumnsRequest;
         }
 
-        public void AppendRows(int sheetId, int numberOfRows)
+        public Request GetAppendRowsRequest(int sheetId, int numberOfRows)
         {
-            Request requestBody = new Request()
+            Request appendRowsRequest = new Request()
             {
                 AppendDimension = new AppendDimensionRequest()
                 {
@@ -180,21 +129,12 @@ namespace AccountingServices
                     Length = numberOfRows
                 }
             };
-
-            List<Request> requests = new List<Request>();
-            requests.Add(requestBody);
-
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
-            batchUpdateSpreadsheetRequest.Requests = requests;
-
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-            var batchUpdateResponse = batchUpdateRequest.Execute();
-            Console.WriteLine("AppendRows:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+            return appendRowsRequest;
         }
 
-        public void DeleteRows(int sheetId, int rowStartIndex, int rowEndIndex)
+        public Request GetDeleteRowsRequest(int sheetId, int rowStartIndex, int rowEndIndex)
         {
-            Request requestBody = new Request()
+            Request deleteRowsRequest = new Request()
             {
                 DeleteDimension = new DeleteDimensionRequest()
                 {
@@ -207,202 +147,12 @@ namespace AccountingServices
                     }
                 }
             };
-
-            List<Request> requests = new List<Request>();
-            requests.Add(requestBody);
-
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
-            batchUpdateSpreadsheetRequest.Requests = requests;
-
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-            var batchUpdateResponse = batchUpdateRequest.Execute();
-            Console.WriteLine("DeleteRows:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+            return deleteRowsRequest;
         }
 
-        public void AppendDataTable(string sheetName, int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow)
+        public List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool autoResizeColumns = true)
         {
-            var range = $"{sheetName}!A:A";
-
-            int startColumnIndex = 0;
-            int endColumnIndex = dt.Columns.Count + 1;
-            int startRowIndex = 1;
-            int endRowIndex = dt.Rows.Count + 1;
-
-            IList<IList<Object>> values = new List<IList<Object>>();
-            if (dt != null)
-            {
-                // first add column names
-                // and build subtotal list
-                List<object> columnHeaders = new List<object>();
-                List<object> subTotalFooters = new List<object>();
-                int columnNumber = 1;
-                foreach (DataColumn column in dt.Columns)
-                {
-                    string columnName = column.ColumnName;
-                    columnHeaders.Add(columnName);
-
-                    // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}{1}:{0}{2})", GetExcelColumnName(columnNumber), startRowIndex + 2, endRowIndex + 1));
-
-                    columnNumber++;
-                }
-                values.Add(columnHeaders);
-
-                // then add row values
-                foreach (DataRow row in dt.Rows)
-                {
-                    List<object> rowValues = row.ItemArray.ToList();
-                    values.Add(rowValues);
-                }
-
-                // finally add the subtotal row
-                values.Add(subTotalFooters);
-            }
-
-            ValueRange valueRange = new ValueRange() { Values = values };
-
-            var appendRequest = service.Spreadsheets.Values.Append(valueRange, spreadsheetId, range);
-            appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
-            appendRequest.InsertDataOption = SpreadsheetsResource.ValuesResource.AppendRequest.InsertDataOptionEnum.INSERTROWS;
-            var appendResponse = appendRequest.Execute();
-            Console.WriteLine("AppendDataTable:\n" + JsonConvert.SerializeObject(appendResponse));
-
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
-            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
-
-            // define header cell format
-            var userEnteredFormatHeader = new CellFormat()
-            {
-                BackgroundColor = GetColor(bgColorHeader),
-                HorizontalAlignment = "CENTER",
-                TextFormat = new TextFormat()
-                {
-                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorHeader),
-                    FontSize = 11,
-                    Bold = true
-                },
-                Borders = new Borders()
-                {
-                    Bottom = new Border()
-                    {
-                        Style = "DASHED",
-                        Width = 2
-                    },
-                    Top = new Border()
-                    {
-                        Style = "DASHED",
-                        Width = 2
-                    }
-                }
-            };
-
-            // create the update request for cells from the header row
-            var formatRequestHeader = new Request()
-            {
-                RepeatCell = new RepeatCellRequest()
-                {
-                    Range = new GridRange()
-                    {
-                        SheetId = sheetId,
-                        StartColumnIndex = startColumnIndex,
-                        EndColumnIndex = endColumnIndex,
-                        StartRowIndex = startRowIndex,
-                        EndRowIndex = startRowIndex + 1 // only header
-                    },
-                    Cell = new CellData()
-                    {
-                        UserEnteredFormat = userEnteredFormatHeader
-                    },
-                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
-                }
-            };
-            batchUpdateSpreadsheetRequest.Requests.Add(formatRequestHeader);
-
-
-            // define row cell format
-            var userEnteredFormatRows = new CellFormat()
-            {
-                BackgroundColor = GetColor(bgColorRow),
-                HorizontalAlignment = "LEFT",
-                TextFormat = new TextFormat()
-                {
-                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorRow),
-                    FontSize = 11,
-                    Bold = false
-                }
-            };
-
-            // create the update request for cells from the header row
-            var formatRequestRows = new Request()
-            {
-                RepeatCell = new RepeatCellRequest()
-                {
-                    Range = new GridRange()
-                    {
-                        SheetId = sheetId,
-                        StartColumnIndex = startColumnIndex,
-                        EndColumnIndex = endColumnIndex,
-                        StartRowIndex = startRowIndex + 1,
-                        EndRowIndex = endRowIndex + 1
-                    },
-                    Cell = new CellData()
-                    {
-                        UserEnteredFormat = userEnteredFormatRows
-                    },
-                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
-                }
-            };
-            batchUpdateSpreadsheetRequest.Requests.Add(formatRequestRows);
-
-
-            // set basic filter for all rows except the last
-            var filterRequest = new Request()
-            {
-                SetBasicFilter = new SetBasicFilterRequest()
-                {
-                    Filter = new BasicFilter()
-                    {
-                        Criteria = null,
-                        SortSpecs = null,
-                        Range = new GridRange()
-                        {
-                            SheetId = sheetId,
-                            StartColumnIndex = startColumnIndex,
-                            EndColumnIndex = endColumnIndex,
-                            StartRowIndex = startRowIndex,
-                            EndRowIndex = endRowIndex + 1
-                        }
-                    }
-                }
-            };
-            batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
-
-
-            // auto resize the columns
-            var autoResizeRequest = new Request()
-            {
-                AutoResizeDimensions = new AutoResizeDimensionsRequest()
-                {
-                    Dimensions = new DimensionRange()
-                    {
-                        SheetId = sheetId,
-                        Dimension = "COLUMNS",
-                        StartIndex = startColumnIndex,
-                        EndIndex = endColumnIndex
-                    }
-                }
-            };
-            batchUpdateSpreadsheetRequest.Requests.Add(autoResizeRequest);
-
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-            var batchUpdateResponse = batchUpdateRequest.Execute();
-            Console.WriteLine("AppendDataTable-Formatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
-        }
-
-        public void AppendDataTable(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool autoResizeColumns = true)
-        {
-            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
-            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
+            var requests = new List<Request>();
 
             if (dt != null)
             {
@@ -413,19 +163,19 @@ namespace AccountingServices
 
                 // append headers
                 var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, dt.Columns, fgColorHeader, bgColorHeader);
-                batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequestHeader });
+                requests.Add(new Request() { AppendCells = appendCellsRequestHeader });
 
                 // append rows
                 var appendCellsRequest = CreateAppendCellRequest(sheetId, dt.Rows, fgColorRow, bgColorRow);
-                batchUpdateSpreadsheetRequest.Requests.Add(new Request() { AppendCells = appendCellsRequest });
+                requests.Add(new Request() { AppendCells = appendCellsRequest });
 
                 // set basic filter for all rows
-                batchUpdateSpreadsheetRequest.Requests.Add(
+                requests.Add(
                     GetBasicFilterRequest(sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex)
                 );
 
                 // insert formula in column 1
-                batchUpdateSpreadsheetRequest.Requests.Add(
+                requests.Add(
                     GetFormulaRequest(sheetId,
                     string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 2),
                     startRowIndex + 1, endRowIndex + 1, 0, 1)
@@ -434,15 +184,34 @@ namespace AccountingServices
                 if (autoResizeColumns)
                 {
                     // auto resize columns
-                    batchUpdateSpreadsheetRequest.Requests.Add(
+                    requests.Add(
                         GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex)
                     );
                 }
-
-                var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
-                var batchUpdateResponse = batchUpdateRequest.Execute();
-                Console.WriteLine("AppendDataTable:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+                return requests;
             }
+
+            return null;
+        }
+
+        public static Request GetAddSheetRequest(string sheetName, int columnCount)
+        {
+            // add new sheet
+            var addSheetRequest = new Request()
+            {
+                AddSheet = new AddSheetRequest()
+                {
+                    Properties = new SheetProperties()
+                    {
+                        Title = sheetName,
+                        GridProperties = new GridProperties()
+                        {
+                            ColumnCount = columnCount
+                        }
+                    }
+                }
+            };
+            return addSheetRequest;
         }
 
         private static Request GetBasicFilterRequest(int sheetId, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
@@ -754,11 +523,226 @@ namespace AccountingServices
 
         public void Dispose()
         {
-            service = null;
+            Service = null;
         }
 
 
         #region Methods for testing
+
+        public void AppendDataTable(string sheetName, int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow)
+        {
+            var range = $"{sheetName}!A:A";
+
+            int startColumnIndex = 0;
+            int endColumnIndex = dt.Columns.Count + 1;
+            int startRowIndex = 1;
+            int endRowIndex = dt.Rows.Count + 1;
+
+            IList<IList<Object>> values = new List<IList<Object>>();
+            if (dt != null)
+            {
+                // first add column names
+                // and build subtotal list
+                List<object> columnHeaders = new List<object>();
+                List<object> subTotalFooters = new List<object>();
+                int columnNumber = 1;
+                foreach (DataColumn column in dt.Columns)
+                {
+                    string columnName = column.ColumnName;
+                    columnHeaders.Add(columnName);
+
+                    // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
+                    subTotalFooters.Add(string.Format("=SUBTOTAL(109;{0}{1}:{0}{2})", GetExcelColumnName(columnNumber), startRowIndex + 2, endRowIndex + 1));
+
+                    columnNumber++;
+                }
+                values.Add(columnHeaders);
+
+                // then add row values
+                foreach (DataRow row in dt.Rows)
+                {
+                    List<object> rowValues = row.ItemArray.ToList();
+                    values.Add(rowValues);
+                }
+
+                // finally add the subtotal row
+                values.Add(subTotalFooters);
+            }
+
+            ValueRange valueRange = new ValueRange() { Values = values };
+
+            var appendRequest = Service.Spreadsheets.Values.Append(valueRange, SPREADSHEET_ID, range);
+            appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
+            appendRequest.InsertDataOption = SpreadsheetsResource.ValuesResource.AppendRequest.InsertDataOptionEnum.INSERTROWS;
+            var appendResponse = appendRequest.Execute();
+            Console.WriteLine("AppendDataTable:\n" + JsonConvert.SerializeObject(appendResponse));
+
+            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
+
+            // define header cell format
+            var userEnteredFormatHeader = new CellFormat()
+            {
+                BackgroundColor = GetColor(bgColorHeader),
+                HorizontalAlignment = "CENTER",
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorHeader),
+                    FontSize = 11,
+                    Bold = true
+                },
+                Borders = new Borders()
+                {
+                    Bottom = new Border()
+                    {
+                        Style = "DASHED",
+                        Width = 2
+                    },
+                    Top = new Border()
+                    {
+                        Style = "DASHED",
+                        Width = 2
+                    }
+                }
+            };
+
+            // create the update request for cells from the header row
+            var formatRequestHeader = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex,
+                        EndRowIndex = startRowIndex + 1 // only header
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredFormat = userEnteredFormatHeader
+                    },
+                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(formatRequestHeader);
+
+
+            // define row cell format
+            var userEnteredFormatRows = new CellFormat()
+            {
+                BackgroundColor = GetColor(bgColorRow),
+                HorizontalAlignment = "LEFT",
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsFactory.GetColor(fgColorRow),
+                    FontSize = 11,
+                    Bold = false
+                }
+            };
+
+            // create the update request for cells from the header row
+            var formatRequestRows = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex + 1,
+                        EndRowIndex = endRowIndex + 1
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredFormat = userEnteredFormatRows
+                    },
+                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(formatRequestRows);
+
+
+            // set basic filter for all rows except the last
+            var filterRequest = new Request()
+            {
+                SetBasicFilter = new SetBasicFilterRequest()
+                {
+                    Filter = new BasicFilter()
+                    {
+                        Criteria = null,
+                        SortSpecs = null,
+                        Range = new GridRange()
+                        {
+                            SheetId = sheetId,
+                            StartColumnIndex = startColumnIndex,
+                            EndColumnIndex = endColumnIndex,
+                            StartRowIndex = startRowIndex,
+                            EndRowIndex = endRowIndex + 1
+                        }
+                    }
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(filterRequest);
+
+
+            // auto resize the columns
+            var autoResizeRequest = new Request()
+            {
+                AutoResizeDimensions = new AutoResizeDimensionsRequest()
+                {
+                    Dimensions = new DimensionRange()
+                    {
+                        SheetId = sheetId,
+                        Dimension = "COLUMNS",
+                        StartIndex = startColumnIndex,
+                        EndIndex = endColumnIndex
+                    }
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(autoResizeRequest);
+
+            var batchUpdateRequest = Service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, SPREADSHEET_ID);
+            var batchUpdateResponse = batchUpdateRequest.Execute();
+            Console.WriteLine("AppendDataTable-Formatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+        }
+
+        public void UpdateFormatting(int sheetId, CellFormat userEnteredFormat, int endColumnIndex, int endRowIndex, int startColumnIndex = 0, int startRowIndex = 0)
+        {
+            // https://developers.google.com/sheets/api/samples/formatting
+
+            var batchUpdateSpreadsheetRequest = new BatchUpdateSpreadsheetRequest();
+            batchUpdateSpreadsheetRequest.Requests = new List<Request>();
+
+            // create the update format request for cells matching the grid range
+            var formatRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex,
+                        EndRowIndex = endRowIndex
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredFormat = userEnteredFormat
+                    },
+                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat,HorizontalAlignment,Borders)"
+                }
+            };
+            batchUpdateSpreadsheetRequest.Requests.Add(formatRequest);
+
+            var batchUpdateRequest = Service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, SPREADSHEET_ID);
+            var batchUpdateResponse = batchUpdateRequest.Execute();
+            Console.WriteLine("UpdateFormatting:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
+        }
+
         public void UpdateFormatting(int sheetId, int color)
         {
             // https://developers.google.com/sheets/api/samples/formatting
@@ -852,7 +836,7 @@ namespace AccountingServices
             batchUpdateSpreadsheetRequest.Requests.Add(request);
              */
 
-            var batchUpdateRequest = service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, spreadsheetId);
+            var batchUpdateRequest = Service.Spreadsheets.BatchUpdate(batchUpdateSpreadsheetRequest, SPREADSHEET_ID);
             batchUpdateRequest.Execute();
         }
 
@@ -877,7 +861,7 @@ namespace AccountingServices
             valueRanges.Add(valueRange);
             body.Data = valueRanges;
 
-            var batchUpdateRequest = service.Spreadsheets.Values.BatchUpdate(body, spreadsheetId);
+            var batchUpdateRequest = Service.Spreadsheets.Values.BatchUpdate(body, SPREADSHEET_ID);
             var batchUpdateResponse = batchUpdateRequest.Execute();
             Console.WriteLine("BatchUpdate:\n" + JsonConvert.SerializeObject(batchUpdateResponse));
         }
@@ -907,7 +891,7 @@ namespace AccountingServices
             Console.WriteLine(JsonConvert.SerializeObject(appendResponse));
              */
 
-            var updateRequest = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, range);
+            var updateRequest = Service.Spreadsheets.Values.Update(valueRange, SPREADSHEET_ID, range);
             updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
             var updateResponse = updateRequest.Execute();
             Console.WriteLine(JsonConvert.SerializeObject(updateResponse));
@@ -916,7 +900,7 @@ namespace AccountingServices
         public void ReadEntries(string sheetName)
         {
             var range = $"{sheetName}!A:BA";
-            var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
+            var request = Service.Spreadsheets.Values.Get(SPREADSHEET_ID, range);
 
             var response = request.Execute();
             IList<IList<object>> values = response.Values;
@@ -941,7 +925,7 @@ namespace AccountingServices
             var oblist = new List<object>() { "Hello!", "This", "was", "insertd", "via", "C#" };
             valueRange.Values = new List<IList<object>> { oblist };
 
-            var appendRequest = service.Spreadsheets.Values.Append(valueRange, spreadsheetId, range);
+            var appendRequest = Service.Spreadsheets.Values.Append(valueRange, SPREADSHEET_ID, range);
             appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
             var appendResponse = appendRequest.Execute();
         }
@@ -954,7 +938,7 @@ namespace AccountingServices
             var oblist = new List<object>() { "updated" };
             valueRange.Values = new List<IList<object>> { oblist };
 
-            var updateRequest = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, range);
+            var updateRequest = Service.Spreadsheets.Values.Update(valueRange, SPREADSHEET_ID, range);
             updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
             var updateResponse = updateRequest.Execute();
         }
@@ -964,7 +948,7 @@ namespace AccountingServices
             var range = $"{sheetName}!A543:F";
             var requestBody = new ClearValuesRequest();
 
-            var deleteRequest = service.Spreadsheets.Values.Clear(requestBody, spreadsheetId, range);
+            var deleteRequest = Service.Spreadsheets.Values.Clear(requestBody, SPREADSHEET_ID, range);
             var deleteResponse = deleteRequest.Execute();
         }
 
