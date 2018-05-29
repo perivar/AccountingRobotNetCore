@@ -199,7 +199,7 @@ namespace AccountingRobot
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.GetFormulaAndTextFormatRequest(sheetId,
                         string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 3),
-                        0xFF0000, 0xCCCCCC,
+                        0xFF0000, 0xEAF1FA,
                         startRowIndex + 2, endRowIndex + 1, 0, 1)
                     );
 
