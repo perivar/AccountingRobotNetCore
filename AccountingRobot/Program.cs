@@ -187,12 +187,10 @@ namespace AccountingRobot
 
                     // insert subtotal in last row
                     // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                    int firstColIndex = GoogleSheetsRequests.ColumnNumber("Q") - 1;
-                    int lastColIndex = GoogleSheetsRequests.ColumnNumber("AY");
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
                         string.Format("=SUBTOTAL(109;Q3:Q{0})", endRowIndex + 1),
-                        endRowIndex + 1, endRowIndex + 2, firstColIndex, lastColIndex)
+                        endRowIndex + 1, endRowIndex + 2, "Q", "AY")
                     );
 
                     // insert control formula in column 1
@@ -217,41 +215,45 @@ namespace AccountingRobot
                         startRowIndex + 2, endRowIndex + 1, endColumnIndex - 2, endColumnIndex - 1)
                     );
 
+                    // add VAT Sales column
+                    string vatSales = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25)*0,25;\" \")", startRowIndex + 3);
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        vatSales,
+                        startRowIndex + 2, endRowIndex + 1, "V", "V")
+                    );
+
+                    // add VAT Exempt column
+                    string salesVATExempt = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25);\" \")", startRowIndex + 3);
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                        salesVATExempt,
+                        startRowIndex + 2, endRowIndex + 1, "X", "X")
+                    );
+
                     // set colors green
-                    int firstColIndexColor = GoogleSheetsRequests.ColumnNumber("U") - 1;
-                    int lastColIndexColor = GoogleSheetsRequests.ColumnNumber("V");
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.GetFormatRequest(sheetId,
                         0x000000, 0xEBF1DE,
-                        startRowIndex + 2, endRowIndex + 1, firstColIndexColor, lastColIndexColor)
+                        startRowIndex + 2, endRowIndex + 1, "U", "V")
                     );
 
                     // set colors blue
-                    int firstColIndexColor2 = GoogleSheetsRequests.ColumnNumber("AV") - 1;
-                    int lastColIndexColor2 = GoogleSheetsRequests.ColumnNumber("AY");
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.GetFormatRequest(sheetId,
                         0x000000, 0xC5D9F1,
-                        startRowIndex + 2, endRowIndex + 1, firstColIndexColor2, lastColIndexColor2)
+                        startRowIndex + 2, endRowIndex + 1, "AV", "AY")
                     );
 
                     // set colors red
-                    int firstColIndexColor3 = GoogleSheetsRequests.ColumnNumber("AZ") - 1;
-                    int lastColIndexColor3 = GoogleSheetsRequests.ColumnNumber("BA");
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.GetFormatRequest(sheetId,
                         0x000000, 0xF2DCDB,
-                        startRowIndex + 2, endRowIndex + 1, firstColIndexColor3, lastColIndexColor3)
+                        startRowIndex + 2, endRowIndex + 1, "AZ", "BA")
                     );
-
-                    //string vatSales = string.Format("=-(O{0}/1.25)*0.25", currentRow);
-                    //string salesVATExempt = string.Format("=-(O{0}/1.25)", currentRow);
 
                     googleBatchUpdateRequest.Execute();
                 }
-
-                // turn on table total rows and set the functions for each of the relevant columns
-                //SetExcelTableTotalsRowFunction(table);
 
                 Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
             }

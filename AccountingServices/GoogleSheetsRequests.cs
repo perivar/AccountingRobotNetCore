@@ -144,6 +144,14 @@ namespace AccountingServices
             return autoResizeRequest;
         }
 
+        public static Request GetFormulaRequest(int sheetId, string formulaValue, int startRowIndex, int endRowIndex, string startColumn, string endColumn)
+        {
+            int startColumnIndex = GoogleSheetsRequests.ColumnNumber(startColumn) - 1;
+            int endColumnIndex = GoogleSheetsRequests.ColumnNumber(endColumn);
+
+            return GetFormulaRequest(sheetId, formulaValue, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex);
+        }
+
         public static Request GetFormulaRequest(int sheetId, string formulaValue, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
         {
             var formulaRequest = new Request()
@@ -169,6 +177,14 @@ namespace AccountingServices
                 }
             };
             return formulaRequest;
+        }
+
+        public static Request GetFormulaAndNumberFormatRequest(int sheetId, string formulaValue, int startRowIndex, int endRowIndex, string startColumn, string endColumn)
+        {
+            int startColumnIndex = GoogleSheetsRequests.ColumnNumber(startColumn) - 1;
+            int endColumnIndex = GoogleSheetsRequests.ColumnNumber(endColumn);
+
+            return GetFormulaAndNumberFormatRequest(sheetId, formulaValue, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex);
         }
 
         public static Request GetFormulaAndNumberFormatRequest(int sheetId, string formulaValue, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
@@ -247,44 +263,27 @@ namespace AccountingServices
             return formulaRequest;
         }
 
+        public static Request GetFormatRequest(int sheetId, int fgColor, int bgColor, int startRowIndex, int endRowIndex, string startColumn, string endColumn)
+        {
+            int startColumnIndex = GoogleSheetsRequests.ColumnNumber(startColumn) - 1;
+            int endColumnIndex = GoogleSheetsRequests.ColumnNumber(endColumn);
+
+            return GetFormatRequest(sheetId, fgColor, bgColor, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex);
+        }
+
         public static Request GetFormatRequest(int sheetId, int fgColor, int bgColor, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
         {
             // define format
             var userEnteredFormat = new CellFormat()
             {
                 BackgroundColor = GoogleSheetsRequests.GetColor(bgColor),
-                HorizontalAlignment = "LEFT",
+                //HorizontalAlignment = "LEFT",
                 TextFormat = new TextFormat()
                 {
                     ForegroundColor = GoogleSheetsRequests.GetColor(fgColor),
                     FontSize = 11,
                     Bold = false
                 }
-                /*,
-                Borders = new Borders()
-                {
-                    Top = new Border()
-                    {
-                        Style = "SOLID",
-                        Width = 1
-                    },
-                    Left = new Border()
-                    {
-                        Style = "SOLID",
-                        Width = 1
-                    },
-                    Bottom = new Border()
-                    {
-                        Style = "SOLID",
-                        Width = 1
-                    },
-                    Right = new Border()
-                    {
-                        Style = "SOLID",
-                        Width = 1
-                    },
-                }
-                */
             };
 
             // create the request
