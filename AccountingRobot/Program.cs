@@ -252,6 +252,11 @@ namespace AccountingRobot
                         startRowIndex + 2, endRowIndex + 1, "AZ", "BA")
                     );
 
+                    // hide archive reference and transaction id
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.HideColumnsRequest(sheetId, "E", "F")
+                    );
+
                     googleBatchUpdateRequest.Execute();
                 }
 

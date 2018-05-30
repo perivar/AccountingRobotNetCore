@@ -54,6 +54,37 @@ namespace AccountingServices
             return deleteRowsRequest;
         }
 
+        public static Request HideColumnsRequest(int sheetId, string startColumn, string endColumn)
+        {
+            int startColumnIndex = GoogleSheetsRequests.ColumnNumber(startColumn) - 1;
+            int endColumnIndex = GoogleSheetsRequests.ColumnNumber(endColumn);
+
+            return HideColumnsRequest(sheetId, startColumnIndex, endColumnIndex);
+        }
+
+        public static Request HideColumnsRequest(int sheetId, int startColumnIndex, int endColumnIndex)
+        {
+            Request hideColumnsRequest = new Request()
+            {
+                UpdateDimensionProperties = new UpdateDimensionPropertiesRequest()
+                {
+                    Range = new DimensionRange()
+                    {
+                        SheetId = sheetId,
+                        Dimension = "COLUMNS",
+                        StartIndex = startColumnIndex,
+                        EndIndex = endColumnIndex
+                    },
+                    Properties = new DimensionProperties()
+                    {
+                        HiddenByUser = true,
+                    },
+                    Fields = "hiddenByUser"
+                }
+            };
+            return hideColumnsRequest;
+        }
+
         public static Request GetAppendCellsRequest(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader)
         {
             var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, columns, fgColorHeader, bgColorHeader);
