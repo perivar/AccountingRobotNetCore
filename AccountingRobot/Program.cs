@@ -102,7 +102,8 @@ namespace AccountingRobot
                 }
                 else
                 {
-                    ExportToGoogleSheets(accountingItems);
+                    //ExportToGoogleSheets(accountingItems);
+                    UpdateGoogleSheets(accountingItems);
                 }
             }
 
@@ -261,6 +262,20 @@ namespace AccountingRobot
                 }
 
                 Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
+            }
+        }
+
+        static void UpdateGoogleSheets(List<AccountingItem> accountingItems)
+        {
+            string sheetName = "BILAGSJOURNAL2";
+
+            // Update Google Sheets spreadsheet 
+            using (var googleSheetsFactory = new GoogleSheetsFactory())
+            {
+                int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(sheetName);
+                
+                var dt = googleSheetsFactory.ReadDataTable(sheetName, "A3:BA3");
+
             }
         }
         #endregion

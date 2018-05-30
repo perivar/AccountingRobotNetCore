@@ -104,6 +104,146 @@ namespace AccountingServices
             Console.WriteLine("UpdateRow:\n" + JsonConvert.SerializeObject(updateResponse));
         }
 
+        public DataTable ReadDataTable(string sheetName, string range)
+        {
+            List<string> ranges = new List<string>();
+            var headerRange = $"{sheetName}!A2:BA2";
+            var dataTypeRange = $"{sheetName}!A3:BA3";
+            ranges.Add(headerRange);
+            ranges.Add(dataTypeRange);
+
+            // determine the data type for the first row below the header
+            // https://stackoverflow.com/questions/46647135/how-to-determine-the-data-type-of-values-returned-by-google-sheets-api
+            var getRequest = Service.Spreadsheets.Get(SPREADSHEET_ID);
+            getRequest.Ranges = ranges;
+            getRequest.IncludeGridData = false;
+            getRequest.Fields = "sheets(data(rowData(values(userEnteredFormat/numberFormat,userEnteredValue)),startColumn,startRow))";
+            var getResponse = getRequest.Execute();
+
+            var headerValues = getResponse.Sheets.FirstOrDefault().Data[0].RowData.FirstOrDefault().Values;
+            var dataValues = getResponse.Sheets.FirstOrDefault().Data[1].RowData.FirstOrDefault().Values;
+
+            var headerList = new List<string>();
+            foreach (var header in headerValues)
+            {
+                if (header.UserEnteredValue != null && header.UserEnteredValue.StringValue != null)
+                {
+                    headerList.Add(header.UserEnteredValue.StringValue);
+                }
+            }
+
+            var dataTypeList = new List<Type>();
+            foreach (var data in dataValues)
+            {
+                Type type = null;
+                if (data.UserEnteredFormat != null)
+                {
+                    if (data.UserEnteredFormat.NumberFormat != null)
+                    {
+                        switch (data.UserEnteredFormat.NumberFormat.Type)
+                        {
+                            case "TEXT":
+                                type = typeof(string);
+                                break;
+                            case "NUMBER":
+                                type = typeof(decimal);
+                                break;
+                            case "DATE":
+                                type = typeof(DateTime);
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+                else
+                {
+                    // no userEnteredFormat
+                    if (data.UserEnteredValue != null)
+                    {
+                        if (data.UserEnteredValue.NumberValue.HasValue)
+                        {
+                            type = typeof(decimal);
+                        }
+                        else if (data.UserEnteredValue.StringValue != null)
+                        {
+                            type = typeof(string);
+                        }
+                        else if (data.UserEnteredValue.BoolValue.HasValue)
+                        {
+                            type = typeof(bool);
+                        }
+                        else if (data.UserEnteredValue.FormulaValue != null)
+                        {
+                            type = typeof(string);
+                        }
+                        else if (data.UserEnteredValue.ErrorValue != null)
+                        {
+                            // ignore?
+                        }
+                    }
+                    else
+                    {
+                        // neither UserEnteredValue or UserEnteredFormat;
+                        type = typeof(string);
+                    }
+                }
+                dataTypeList.Add(type);
+            }
+
+            // build data table columns
+            if (headerList.Count != dataTypeList.Count)
+            {
+                Console.WriteLine("Error! Failed reading datatable!");
+                return null;
+            }
+
+            DataTable dt = new DataTable();
+            for (int i = 0; i < headerList.Count; i++)
+            {
+                dt.Columns.Add(headerList[i], dataTypeList[i]);
+            }
+
+            var fullRange = $"{sheetName}!{range}";
+            var request = Service.Spreadsheets.Values.Get(SPREADSHEET_ID, fullRange);
+            var response = request.Execute();
+            IList<IList<object>> values = response.Values;
+            if (values != null && values.Count > 0)
+            {
+                int count = 0;
+                foreach (var row in values)
+                {
+                    count++;
+                    if (count == 1) continue; // skip first row
+
+                    foreach (var column in row)
+                    {
+                        switch (column)
+                        {
+                            case bool boolValue:
+                                break;
+                            case int intValue:
+                                break;
+                            case decimal decimalValue:
+                                break;
+                            case DateTime dateTimeValue:
+                                break;
+                            case string stringValue:
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+
+                return dt;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         public void Dispose()
         {
             Service = null;
