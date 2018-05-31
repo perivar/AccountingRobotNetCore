@@ -132,15 +132,13 @@ namespace AccountingServices
                 }
             }
 
-            int counter = 0;
             DataTable dt = new DataTable();
-            foreach (var row in rowData)
+            for (int i = 0; i < rowData.Count - 1; i++)
             {
-                counter++;
-                if (counter == 1) continue; // ship header, already been processed
+                if (i == 0) continue; // ship header, already been processed
 
-                var rowValues = row.Values;
-                if (counter == 2) // first data row
+                var rowValues = rowData[i].Values;
+                if (i == 1) // first data row
                 {
                     // read the first line of data and get data types
                     var dataTypeAndValueList = new List<KeyValuePair<Type, object>>();
@@ -158,17 +156,17 @@ namespace AccountingServices
                     }
 
                     // add columns
-                    for (int i = 0; i < headerList.Count; i++)
+                    for (int j = 0; j < headerList.Count; j++)
                     {
-                        dt.Columns.Add(headerList[i], dataTypeAndValueList[i].Key);
+                        dt.Columns.Add(headerList[j], dataTypeAndValueList[j].Key);
                     }
 
                     // add first row of values
                     DataRow workRow = dt.NewRow();
-                    for (int i = 0; i < headerList.Count; i++)
+                    for (int k = 0; k < headerList.Count; k++)
                     {
-                        object value = dataTypeAndValueList[i].Value;
-                        if (dataTypeAndValueList[i].Key == typeof(DateTime))
+                        object value = dataTypeAndValueList[k].Value;
+                        if (dataTypeAndValueList[k].Key == typeof(DateTime))
                         {
                             // Google Sheets uses a form of epoch date that is commonly used in spreadsheets. 
                             // The whole number portion of the value (left of the decimal) counts the days since 
@@ -180,7 +178,7 @@ namespace AccountingServices
                             // February 1st 1900 at 3pm would be 33.625.
                             value = DateTime.FromOADate((double)value);
                         }
-                        workRow[i] = (value == null ? DBNull.Value : value);
+                        workRow[k] = (value == null ? DBNull.Value : value);
                     }
                     dt.Rows.Add(workRow);
                 }
@@ -191,9 +189,9 @@ namespace AccountingServices
 
                     // read the first line of data and get data types
                     DataRow workRow = dt.NewRow();
-                    for (int i = 0; i < rowValues.Count; i++)
+                    for (int j = 0; j < rowValues.Count; j++)
                     {
-                        var pair = GetDataTypeAndValueFromDataRow(rowValues[i]);
+                        var pair = GetDataTypeAndValueFromDataRow(rowValues[j]);
 
                         object value = pair.Value;
                         if (pair.Key == typeof(DateTime))
@@ -208,7 +206,7 @@ namespace AccountingServices
                             // February 1st 1900 at 3pm would be 33.625.
                             value = DateTime.FromOADate((double)value);
                         }
-                        workRow[i] = (value == null ? DBNull.Value : value);
+                        workRow[j] = (value == null ? DBNull.Value : value);
                     }
                     dt.Rows.Add(workRow);
                 }

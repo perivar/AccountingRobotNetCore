@@ -266,7 +266,7 @@ namespace AccountingRobot
             }
         }
 
-        static void UpdateGoogleSheets(List<AccountingItem> accountingItems)
+        static void UpdateGoogleSheets(List<AccountingItem> newAccountingItems)
         {
             string sheetName = "BILAGSJOURNAL2";
 
@@ -343,6 +343,20 @@ namespace AccountingRobot
                     existingAccountingItems.Add(row, accountingItem);
                 }
 
+                // reduce the old Accounting Spreadsheet and remove the entries that doesn't have a number
+                var existingAccountingItemsToDelete =
+                    (from row in existingAccountingItems
+                     where
+                     row.Value.Number == 0
+                     orderby row.Value.Number ascending
+                     select row);
+
+                // identify elements from the new accounting items list that does not exist in the existing spreadsheet
+                var existingAccountingItemsToKeep = existingAccountingItems.Except(existingAccountingItemsToDelete);
+                var newAccountingElements = newAccountingItems.Except(existingAccountingItemsToKeep.Select(o => o.Value)).ToList();
+
+                // delete rows from table
+                
             }
         }
         #endregion
