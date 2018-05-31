@@ -107,21 +107,21 @@ namespace AccountingServices
         public DataTable ReadDataTable(string sheetName, string range)
         {
             List<string> ranges = new List<string>();
-            var headerRange = $"{sheetName}!A2:BA2";
-            var dataTypeRange = $"{sheetName}!A3:BA3";
-            ranges.Add(headerRange);
-            ranges.Add(dataTypeRange);
+            var fullRange = $"{sheetName}!{range}";
+            ranges.Add(fullRange);
 
             // determine the data type for the first row below the header
             // https://stackoverflow.com/questions/46647135/how-to-determine-the-data-type-of-values-returned-by-google-sheets-api
-            var getRequest = Service.Spreadsheets.Get(SPREADSHEET_ID);
-            getRequest.Ranges = ranges;
-            getRequest.IncludeGridData = false;
-            getRequest.Fields = "sheets(data(rowData(values(userEnteredFormat/numberFormat,userEnteredValue)),startColumn,startRow))";
-            var getResponse = getRequest.Execute();
+            var request = Service.Spreadsheets.Get(SPREADSHEET_ID);
+            request.Ranges = ranges;
+            request.IncludeGridData = false;
+            request.Fields = "sheets(data(rowData(values(userEnteredFormat/numberFormat,userEnteredValue)),startColumn,startRow))";
+            var response = request.Execute();
 
-            var headerValues = getResponse.Sheets.FirstOrDefault().Data[0].RowData.FirstOrDefault().Values;
-            var dataValues = getResponse.Sheets.FirstOrDefault().Data[1].RowData.FirstOrDefault().Values;
+            var rowData = response.Sheets.FirstOrDefault().Data.FirstOrDefault().RowData;
+
+            // header
+            var headerValues = rowData[0].Values;
 
             var headerList = new List<string>();
             foreach (var header in headerValues)
@@ -132,116 +132,157 @@ namespace AccountingServices
                 }
             }
 
-            var dataTypeList = new List<Type>();
-            foreach (var data in dataValues)
+            int counter = 0;
+            DataTable dt = new DataTable();
+            foreach (var row in rowData)
             {
-                Type type = null;
-                if (data.UserEnteredFormat != null)
+                counter++;
+                if (counter == 1) continue; // ship header, already been processed
+
+                var rowValues = row.Values;
+                if (counter == 2) // first data row
                 {
-                    if (data.UserEnteredFormat.NumberFormat != null)
+                    // read the first line of data and get data types
+                    var dataTypeAndValueList = new List<KeyValuePair<Type, object>>();
+                    foreach (var dataRow in rowValues)
                     {
-                        switch (data.UserEnteredFormat.NumberFormat.Type)
-                        {
-                            case "TEXT":
-                                type = typeof(string);
-                                break;
-                            case "NUMBER":
-                                type = typeof(decimal);
-                                break;
-                            case "DATE":
-                                type = typeof(DateTime);
-                                break;
-                            default:
-                                break;
-                        }
+                        var pair = GetDataTypeAndValueFromDataRow(dataRow);
+                        dataTypeAndValueList.Add(pair);
                     }
+
+                    // build data table columns
+                    if (headerList.Count != dataTypeAndValueList.Count)
+                    {
+                        Console.WriteLine("Error! Failed reading datatable!");
+                        return null;
+                    }
+
+                    // add columns
+                    for (int i = 0; i < headerList.Count; i++)
+                    {
+                        dt.Columns.Add(headerList[i], dataTypeAndValueList[i].Key);
+                    }
+
+                    // add first row of values
+                    DataRow workRow = dt.NewRow();
+                    for (int i = 0; i < headerList.Count; i++)
+                    {
+                        object value = dataTypeAndValueList[i].Value;
+                        if (dataTypeAndValueList[i].Key == typeof(DateTime))
+                        {
+                            // Google Sheets uses a form of epoch date that is commonly used in spreadsheets. 
+                            // The whole number portion of the value (left of the decimal) counts the days since 
+                            // December 30th 1899. The fractional portion (right of the decimal) 
+                            // counts the time as a fraction of one day. 
+                            // For example, January 1st 1900 at noon would be 2.5, 
+                            // 2 because it's two days after December 30th, 1899, 
+                            // and .5 because noon is half a day. 
+                            // February 1st 1900 at 3pm would be 33.625.
+                            value = DateTime.FromOADate((double)value);
+                        }
+                        workRow[i] = (value == null ? DBNull.Value : value);
+                    }
+                    dt.Rows.Add(workRow);
                 }
                 else
                 {
-                    // no userEnteredFormat
-                    if (data.UserEnteredValue != null)
+                    // second and the rest of the data rows
+                    // add first row of values
+
+                    // read the first line of data and get data types
+                    DataRow workRow = dt.NewRow();
+                    for (int i = 0; i < rowValues.Count; i++)
                     {
-                        if (data.UserEnteredValue.NumberValue.HasValue)
+                        var pair = GetDataTypeAndValueFromDataRow(rowValues[i]);
+
+                        object value = pair.Value;
+                        if (pair.Key == typeof(DateTime))
                         {
-                            type = typeof(decimal);
+                            // Google Sheets uses a form of epoch date that is commonly used in spreadsheets. 
+                            // The whole number portion of the value (left of the decimal) counts the days since 
+                            // December 30th 1899. The fractional portion (right of the decimal) 
+                            // counts the time as a fraction of one day. 
+                            // For example, January 1st 1900 at noon would be 2.5, 
+                            // 2 because it's two days after December 30th, 1899, 
+                            // and .5 because noon is half a day. 
+                            // February 1st 1900 at 3pm would be 33.625.
+                            value = DateTime.FromOADate((double)value);
                         }
-                        else if (data.UserEnteredValue.StringValue != null)
-                        {
-                            type = typeof(string);
-                        }
-                        else if (data.UserEnteredValue.BoolValue.HasValue)
-                        {
-                            type = typeof(bool);
-                        }
-                        else if (data.UserEnteredValue.FormulaValue != null)
-                        {
-                            type = typeof(string);
-                        }
-                        else if (data.UserEnteredValue.ErrorValue != null)
-                        {
-                            // ignore?
-                        }
+                        workRow[i] = (value == null ? DBNull.Value : value);
                     }
-                    else
-                    {
-                        // neither UserEnteredValue or UserEnteredFormat;
-                        type = typeof(string);
-                    }
+                    dt.Rows.Add(workRow);
                 }
-                dataTypeList.Add(type);
             }
 
-            // build data table columns
-            if (headerList.Count != dataTypeList.Count)
-            {
-                Console.WriteLine("Error! Failed reading datatable!");
-                return null;
-            }
+            return dt;
+        }
 
-            DataTable dt = new DataTable();
-            for (int i = 0; i < headerList.Count; i++)
+        private static KeyValuePair<Type, object> GetDataTypeAndValueFromDataRow(CellData data)
+        {
+            Type type = null;
+            object value = null;
+            if (data.UserEnteredFormat != null)
             {
-                dt.Columns.Add(headerList[i], dataTypeList[i]);
-            }
-
-            var fullRange = $"{sheetName}!{range}";
-            var request = Service.Spreadsheets.Values.Get(SPREADSHEET_ID, fullRange);
-            var response = request.Execute();
-            IList<IList<object>> values = response.Values;
-            if (values != null && values.Count > 0)
-            {
-                int count = 0;
-                foreach (var row in values)
+                if (data.UserEnteredFormat.NumberFormat != null)
                 {
-                    count++;
-                    if (count == 1) continue; // skip first row
-
-                    foreach (var column in row)
+                    switch (data.UserEnteredFormat.NumberFormat.Type)
                     {
-                        switch (column)
-                        {
-                            case bool boolValue:
-                                break;
-                            case int intValue:
-                                break;
-                            case decimal decimalValue:
-                                break;
-                            case DateTime dateTimeValue:
-                                break;
-                            case string stringValue:
-                                break;
-                            default:
-                                break;
-                        }
+                        case "TEXT":
+                            type = typeof(string);
+                            break;
+                        case "NUMBER":
+                            type = typeof(decimal);
+                            break;
+                        case "DATE":
+                            type = typeof(DateTime);
+                            break;
+                        default:
+                            break;
                     }
                 }
+            }
 
-                return dt;
+            // no userEnteredFormat
+            if (data.UserEnteredValue != null)
+            {
+                if (data.UserEnteredValue.NumberValue.HasValue)
+                {
+                    if (type == null) type = typeof(decimal);
+                    value = data.UserEnteredValue.NumberValue.Value;
+                }
+                else if (data.UserEnteredValue.StringValue != null)
+                {
+                    if (type == null) type = typeof(string);
+                    value = data.UserEnteredValue.StringValue;
+                }
+                else if (data.UserEnteredValue.BoolValue.HasValue)
+                {
+                    if (type == null) type = typeof(bool);
+                    value = data.UserEnteredValue.BoolValue.Value;
+                }
+                else if (data.UserEnteredValue.FormulaValue != null)
+                {
+                    if (type == null) type = typeof(string);
+                    if (type == typeof(decimal))
+                    {
+                        value = 0;
+                    }
+                    // always use string if there is a formula value
+                    //type = typeof(string);
+                    //value = data.UserEnteredValue.FormulaValue;
+                }
+                else if (data.UserEnteredValue.ErrorValue != null)
+                {
+                    // ignore?
+                }
             }
             else
             {
-                return null;
+                // UserEnteredValue is null
+                type = typeof(string); // key cannot be null
+                value = null;
             }
+            return new KeyValuePair<Type, object>(type, value);
         }
 
         public void Dispose()

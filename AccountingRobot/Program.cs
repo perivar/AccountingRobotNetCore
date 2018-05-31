@@ -9,6 +9,7 @@ using System.Globalization;
 using AccountingServices;
 using System.Text.RegularExpressions;
 using Google.Apis.Sheets.v4.Data;
+using System.Data.Common;
 
 namespace AccountingRobot
 {
@@ -273,8 +274,74 @@ namespace AccountingRobot
             using (var googleSheetsFactory = new GoogleSheetsFactory())
             {
                 int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(sheetName);
-                
-                var dt = googleSheetsFactory.ReadDataTable(sheetName, "A3:BA3");
+
+                var dt = googleSheetsFactory.ReadDataTable(sheetName, "A2:BA100000");
+
+                var existingAccountingItems = new Dictionary<DataRow, AccountingItem>();
+                foreach (DataRow row in dt.Rows)
+                {
+                    var accountingItem = new AccountingItem();
+                    accountingItem.Date = row.Field<DateTime>("Dato");
+                    accountingItem.Number = (int)row.Field<decimal>("Bilagsnr.");
+                    accountingItem.ArchiveReference = row.Field<string>("Arkivreferanse");
+                    accountingItem.TransactionID = row.Field<string>("TransaksjonsId");
+                    accountingItem.Type = row.Field<string>("Type");
+                    accountingItem.AccountingType = row.Field<string>("Regnskapstype");
+                    accountingItem.Text = row.Field<string>("Tekst");
+                    accountingItem.CustomerName = row.Field<string>("Kundenavn");
+                    accountingItem.ErrorMessage = row.Field<string>("Feilmelding");
+                    accountingItem.Gateway = row.Field<string>("Gateway");
+                    accountingItem.NumSale = row.Field<string>("Num Salg");
+                    accountingItem.NumPurchase = row.Field<string>("Num Kjøp");
+                    accountingItem.PurchaseOtherCurrency = row.Field<decimal>("Kjøp annen valuta");
+                    accountingItem.OtherCurrency = row.Field<string>("Annen valuta");
+
+                    accountingItem.AccountPaypal = row.Field<decimal>("Paypal");    // 1910
+                    accountingItem.AccountStripe = row.Field<decimal>("Stripe");    // 1915
+                    accountingItem.AccountVipps = row.Field<decimal>("Vipps");  // 1918
+                    accountingItem.AccountBank = row.Field<decimal>("Bank");    // 1920
+
+                    accountingItem.VATPurchase = row.Field<decimal>("MVA Kjøp");
+                    accountingItem.VATSales = row.Field<decimal>("MVA Salg");
+
+                    accountingItem.VATSettlementAccount = row.Field<decimal>("Oppgjørskonto mva");
+                    accountingItem.SalesVAT = row.Field<decimal>("Salg mva-pliktig");   // 3000
+                    accountingItem.SalesVATExempt = row.Field<decimal>("Salg avgiftsfritt");    // 3100
+
+                    accountingItem.CostOfGoods = row.Field<decimal>("Varekostnad"); // 4005
+                    accountingItem.CostForReselling = row.Field<decimal>("Forbruk for videresalg"); // 4300
+                    accountingItem.CostForSalary = row.Field<decimal>("Lønn");  // 5000
+                    accountingItem.CostForSalaryTax = row.Field<decimal>("Arb.giver avgift");   // 5400
+                    accountingItem.CostForDepreciation = row.Field<decimal>("Avskrivninger");   // 6000
+                    accountingItem.CostForShipping = row.Field<decimal>("Frakt");   // 6100
+                    accountingItem.CostForElectricity = row.Field<decimal>("Strøm");    // 6340 
+                    accountingItem.CostForToolsInventory = row.Field<decimal>("Verktøy inventar");  // 6500
+                    accountingItem.CostForMaintenance = row.Field<decimal>("Vedlikehold");  // 6695
+                    accountingItem.CostForFacilities = row.Field<decimal>("Kontorkostnader");   // 6800 
+
+                    accountingItem.CostOfData = row.Field<decimal>("Datakostnader");    // 6810 
+                    accountingItem.CostOfPhoneInternetUse = row.Field<decimal>("Telefon Internett Bruk");   // 6900
+                    accountingItem.PrivateUseOfECom = row.Field<decimal>("Privat bruk av el.kommunikasjon");    // 7098
+                    accountingItem.CostForTravelAndAllowance = row.Field<decimal>("Reise og Diett");    // 7140
+                    accountingItem.CostOfAdvertising = row.Field<decimal>("Reklamekostnader");  // 7330
+                    accountingItem.CostOfOther = row.Field<decimal>("Diverse annet");   // 7700
+
+                    accountingItem.FeesBank = row.Field<decimal>("Gebyrer Bank");   // 7770
+                    accountingItem.FeesPaypal = row.Field<decimal>("Gebyrer Paypal");   // 7780
+                    accountingItem.FeesStripe = row.Field<decimal>("Gebyrer Stripe");   // 7785 
+
+                    accountingItem.CostForEstablishment = row.Field<decimal>("Etableringskostnader");   // 7790
+
+                    accountingItem.IncomeFinance = row.Field<decimal>("Finansinntekter");   // 8099
+                    accountingItem.CostOfFinance = row.Field<decimal>("Finanskostnader");   // 8199
+
+                    accountingItem.Investments = row.Field<decimal>("Investeringer");   // 1200
+                    accountingItem.AccountsReceivable = row.Field<decimal>("Kundefordringer");  // 1500
+                    accountingItem.PersonalWithdrawal = row.Field<decimal>("Privat uttak");
+                    accountingItem.PersonalDeposit = row.Field<decimal>("Privat innskudd");
+
+                    existingAccountingItems.Add(row, accountingItem);
+                }
 
             }
         }
