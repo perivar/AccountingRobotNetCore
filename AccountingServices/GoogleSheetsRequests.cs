@@ -85,6 +85,30 @@ namespace AccountingServices
             return hideColumnsRequest;
         }
 
+        public static Request GetFindReplaceRequest(int sheetId, string query, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
+        {
+            var findReplaceRequest = new FindReplaceRequest()
+            {
+                Find = query,
+                MatchCase = true,
+                MatchEntireCell = true,
+                SearchByRegex = false,
+                IncludeFormulas = false,
+                Range = new GridRange()
+                {
+                    SheetId = sheetId,
+                    StartColumnIndex = startColumnIndex,
+                    EndColumnIndex = endColumnIndex,
+                    StartRowIndex = startRowIndex,
+                    EndRowIndex = endRowIndex
+                },
+                SheetId = sheetId,
+                AllSheets = false
+            };
+            var request = new Request() { FindReplace = findReplaceRequest };
+            return request;
+        }
+
         public static Request GetAppendCellsRequest(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader)
         {
             var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, columns, fgColorHeader, bgColorHeader);

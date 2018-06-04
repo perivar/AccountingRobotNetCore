@@ -40,9 +40,10 @@ namespace AccountingServices
             // get sheet id by sheet name
             var spreadsheet = Service.Spreadsheets.Get(SPREADSHEET_ID).Execute();
             var sheet = spreadsheet.Sheets.Where(s => s.Properties.Title == sheetName).FirstOrDefault();
-            int sheetId = (int)sheet.Properties.SheetId;
-
-            return sheetId;
+            if (sheet != null && sheet.Properties != null) {
+                return (int)sheet.Properties.SheetId;
+            }
+            return -1;
         }
 
         public Sheet GetSheetFromSheetName(string sheetName)
@@ -104,10 +105,10 @@ namespace AccountingServices
             Console.WriteLine("UpdateRow:\n" + JsonConvert.SerializeObject(updateResponse));
         }
 
-        public DataTable ReadDataTable(string sheetName, string range)
+        public DataTable ReadDataTable(string sheetName, int startRowNumber, int endRowNumber = 10000)
         {
             List<string> ranges = new List<string>();
-            var fullRange = $"{sheetName}!{range}";
+            var fullRange = $"{sheetName}!{startRowNumber}:{endRowNumber}";
             ranges.Add(fullRange);
 
             // determine the data type for the first row below the header
@@ -133,7 +134,7 @@ namespace AccountingServices
             }
 
             DataTable dt = new DataTable();
-            for (int i = 0; i < rowData.Count - 1; i++)
+            for (int i = 0; i < rowData.Count - 1; i++) // include all rows except the subtotal at the bottom
             {
                 if (i == 0) continue; // ship header, already been processed
 
@@ -156,6 +157,10 @@ namespace AccountingServices
                     }
 
                     // add columns
+                    // add row number
+                    dt.Columns.Add("RowNumber", typeof(int));
+
+                    // add the rest of the headers
                     for (int j = 0; j < headerList.Count; j++)
                     {
                         dt.Columns.Add(headerList[j], dataTypeAndValueList[j].Key);
@@ -163,6 +168,11 @@ namespace AccountingServices
 
                     // add first row of values
                     DataRow workRow = dt.NewRow();
+
+                    // add row number
+                    workRow[0] = startRowNumber + i;
+
+                    // add the rest of the values
                     for (int k = 0; k < headerList.Count; k++)
                     {
                         object value = dataTypeAndValueList[k].Value;
@@ -178,7 +188,7 @@ namespace AccountingServices
                             // February 1st 1900 at 3pm would be 33.625.
                             value = DateTime.FromOADate((double)value);
                         }
-                        workRow[k] = (value == null ? DBNull.Value : value);
+                        workRow[k+1] = (value == null ? DBNull.Value : value);
                     }
                     dt.Rows.Add(workRow);
                 }
@@ -189,6 +199,11 @@ namespace AccountingServices
 
                     // read the first line of data and get data types
                     DataRow workRow = dt.NewRow();
+
+                    // add row number
+                    workRow[0] = startRowNumber + i;
+
+                    // add the rest of the values
                     for (int j = 0; j < rowValues.Count; j++)
                     {
                         var pair = GetDataTypeAndValueFromDataRow(rowValues[j]);
@@ -206,7 +221,7 @@ namespace AccountingServices
                             // February 1st 1900 at 3pm would be 33.625.
                             value = DateTime.FromOADate((double)value);
                         }
-                        workRow[j] = (value == null ? DBNull.Value : value);
+                        workRow[j+1] = (value == null ? DBNull.Value : value);
                     }
                     dt.Rows.Add(workRow);
                 }

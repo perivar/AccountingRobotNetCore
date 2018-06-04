@@ -15,6 +15,8 @@ namespace AccountingRobot
 {
     partial class Program
     {
+        const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL2";
+
         static void Main(string[] args)
         {
             bool USE_EXCEL = false;
@@ -103,8 +105,18 @@ namespace AccountingRobot
                 }
                 else
                 {
-                    //ExportToGoogleSheets(accountingItems);
-                    UpdateGoogleSheets(accountingItems);
+                    using (var googleSheetsFactory = new GoogleSheetsFactory())
+                    {
+                        int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(GOOGLE_SHEET_NAME);
+                        if (sheetId > 0)
+                        {
+                            UpdateGoogleSheets(googleSheetsFactory, accountingItems);
+                        }
+                        else
+                        {
+                            ExportToGoogleSheets(googleSheetsFactory, accountingItems);
+                        }
+                    }
                 }
             }
 
@@ -152,211 +164,222 @@ namespace AccountingRobot
             return accountingHeaders;
         }
 
-        static void ExportToGoogleSheets(List<AccountingItem> accountingItems)
+        static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems)
         {
-            string sheetName = "BILAGSJOURNAL2";
             var dt = GetDataTable(accountingItems);
 
             if (dt == null) return;
 
             // Build Google Sheets spreadsheet 
-            using (var googleSheetsFactory = new GoogleSheetsFactory())
+            int sheetId = googleSheetsFactory.AddSheet(GOOGLE_SHEET_NAME, dt.Columns.Count);
+            //int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(sheetName);
+            //googleSheetsFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
+            //googleSheetsFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
+
+            int startColumnIndex = 0;
+            int endColumnIndex = dt.Columns.Count + 1;
+            int startRowIndex = 0;
+            int endRowIndex = dt.Rows.Count + 1;
+
+            using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
             {
-                int sheetId = googleSheetsFactory.AddSheet(sheetName, dt.Columns.Count);
-                //int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(sheetName);
-                //googleSheetsFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
-                //googleSheetsFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
+                // append headers
+                var accountingHeaders = GetAccountingHeaders();
+                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
 
-                int startColumnIndex = 0;
-                int endColumnIndex = dt.Columns.Count + 1;
-                int startRowIndex = 0;
-                int endRowIndex = dt.Rows.Count + 1;
+                // append data table in row 2
+                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1));
 
-                using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
-                {
-                    // append headers
-                    var accountingHeaders = GetAccountingHeaders();
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
+                // set basic filter for all rows
+                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 1, startColumnIndex, endColumnIndex));
 
-                    // append data table in row 2
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1));
+                // auto resize columns
+                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex));
 
-                    // set basic filter for all rows
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 1, startColumnIndex, endColumnIndex));
+                // insert subtotal in last row
+                // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                    string.Format("=SUBTOTAL(109;Q3:Q{0})", endRowIndex + 1),
+                    endRowIndex + 1, endRowIndex + 2, "Q", "AY")
+                );
 
-                    // auto resize columns
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex));
+                // insert control formula in column 1
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormulaAndTextFormatRequest(sheetId,
+                    string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 3),
+                    0xFF0000, 0xEAF1FA,
+                    startRowIndex + 2, endRowIndex + 1, 0, 1)
+                );
 
-                    // insert subtotal in last row
-                    // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                        string.Format("=SUBTOTAL(109;Q3:Q{0})", endRowIndex + 1),
-                        endRowIndex + 1, endRowIndex + 2, "Q", "AY")
-                    );
+                // insert sum pre rounding formula in next last column 
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                    string.Format("=SUM(Q{0}:AY{0})", startRowIndex + 3),
+                    startRowIndex + 2, endRowIndex + 1, endColumnIndex - 3, endColumnIndex - 2)
+                );
 
-                    // insert control formula in column 1
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaAndTextFormatRequest(sheetId,
-                        string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 3),
-                        0xFF0000, 0xEAF1FA,
-                        startRowIndex + 2, endRowIndex + 1, 0, 1)
-                    );
+                // insert sum rounding formula in last column
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                    string.Format("=ROUND(AZ{0};2)", startRowIndex + 3),
+                    startRowIndex + 2, endRowIndex + 1, endColumnIndex - 2, endColumnIndex - 1)
+                );
 
-                    // insert sum pre rounding formula in next last column 
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                        string.Format("=SUM(Q{0}:AY{0})", startRowIndex + 3),
-                        startRowIndex + 2, endRowIndex + 1, endColumnIndex - 3, endColumnIndex - 2)
-                    );
+                // add VAT Sales column
+                string vatSales = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25)*0,25;\" \")", startRowIndex + 3);
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                    vatSales,
+                    startRowIndex + 2, endRowIndex + 1, "V", "V")
+                );
 
-                    // insert sum rounding formula in last column
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                        string.Format("=ROUND(AZ{0};2)", startRowIndex + 3),
-                        startRowIndex + 2, endRowIndex + 1, endColumnIndex - 2, endColumnIndex - 1)
-                    );
+                // add VAT Exempt column
+                string salesVATExempt = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25);\" \")", startRowIndex + 3);
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                    salesVATExempt,
+                    startRowIndex + 2, endRowIndex + 1, "X", "X")
+                );
 
-                    // add VAT Sales column
-                    string vatSales = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25)*0,25;\" \")", startRowIndex + 3);
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
-                        vatSales,
-                        startRowIndex + 2, endRowIndex + 1, "V", "V")
-                    );
+                // set colors green
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormatRequest(sheetId,
+                    0x000000, 0xEBF1DE,
+                    startRowIndex + 2, endRowIndex + 1, "U", "V")
+                );
 
-                    // add VAT Exempt column
-                    string salesVATExempt = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25);\" \")", startRowIndex + 3);
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaRequest(sheetId,
-                        salesVATExempt,
-                        startRowIndex + 2, endRowIndex + 1, "X", "X")
-                    );
+                // set colors blue
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormatRequest(sheetId,
+                    0x000000, 0xC5D9F1,
+                    startRowIndex + 2, endRowIndex + 1, "AV", "AY")
+                );
 
-                    // set colors green
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormatRequest(sheetId,
-                        0x000000, 0xEBF1DE,
-                        startRowIndex + 2, endRowIndex + 1, "U", "V")
-                    );
+                // set colors red
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormatRequest(sheetId,
+                    0x000000, 0xF2DCDB,
+                    startRowIndex + 2, endRowIndex + 1, "AZ", "BA")
+                );
 
-                    // set colors blue
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormatRequest(sheetId,
-                        0x000000, 0xC5D9F1,
-                        startRowIndex + 2, endRowIndex + 1, "AV", "AY")
-                    );
+                // hide archive reference and transaction id
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.HideColumnsRequest(sheetId, "E", "F")
+                );
 
-                    // set colors red
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormatRequest(sheetId,
-                        0x000000, 0xF2DCDB,
-                        startRowIndex + 2, endRowIndex + 1, "AZ", "BA")
-                    );
-
-                    // hide archive reference and transaction id
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.HideColumnsRequest(sheetId, "E", "F")
-                    );
-
-                    googleBatchUpdateRequest.Execute();
-                }
-
-                Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
+                googleBatchUpdateRequest.Execute();
             }
+
+            Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
         }
 
-        static void UpdateGoogleSheets(List<AccountingItem> newAccountingItems)
+        static void UpdateGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> newAccountingItems)
         {
-            string sheetName = "BILAGSJOURNAL2";
-
             // Update Google Sheets spreadsheet 
-            using (var googleSheetsFactory = new GoogleSheetsFactory())
+            int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(GOOGLE_SHEET_NAME);
+
+            var dt = googleSheetsFactory.ReadDataTable(GOOGLE_SHEET_NAME, 2);
+
+            var existingAccountingItems = new Dictionary<DataRow, AccountingItem>();
+            foreach (DataRow row in dt.Rows)
             {
-                int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(sheetName);
+                var accountingItem = new AccountingItem();
+                accountingItem.Date = row.Field<DateTime>("Dato");
+                accountingItem.Number = (int)row.Field<decimal>("Bilagsnr.");
+                accountingItem.ArchiveReference = row.Field<string>("Arkivreferanse");
+                accountingItem.TransactionID = row.Field<string>("TransaksjonsId");
+                accountingItem.Type = row.Field<string>("Type");
+                accountingItem.AccountingType = row.Field<string>("Regnskapstype");
+                accountingItem.Text = row.Field<string>("Tekst");
+                accountingItem.CustomerName = row.Field<string>("Kundenavn");
+                accountingItem.ErrorMessage = row.Field<string>("Feilmelding");
+                accountingItem.Gateway = row.Field<string>("Gateway");
+                accountingItem.NumSale = row.Field<string>("Num Salg");
+                accountingItem.NumPurchase = row.Field<string>("Num Kjøp");
+                accountingItem.PurchaseOtherCurrency = row.Field<decimal>("Kjøp annen valuta");
+                accountingItem.OtherCurrency = row.Field<string>("Annen valuta");
 
-                var dt = googleSheetsFactory.ReadDataTable(sheetName, "A2:BA100000");
+                accountingItem.AccountPaypal = row.Field<decimal>("Paypal");    // 1910
+                accountingItem.AccountStripe = row.Field<decimal>("Stripe");    // 1915
+                accountingItem.AccountVipps = row.Field<decimal>("Vipps");  // 1918
+                accountingItem.AccountBank = row.Field<decimal>("Bank");    // 1920
 
-                var existingAccountingItems = new Dictionary<DataRow, AccountingItem>();
-                foreach (DataRow row in dt.Rows)
+                accountingItem.VATPurchase = row.Field<decimal>("MVA Kjøp");
+                accountingItem.VATSales = row.Field<decimal>("MVA Salg");
+
+                accountingItem.VATSettlementAccount = row.Field<decimal>("Oppgjørskonto mva");
+                accountingItem.SalesVAT = row.Field<decimal>("Salg mva-pliktig");   // 3000
+                accountingItem.SalesVATExempt = row.Field<decimal>("Salg avgiftsfritt");    // 3100
+
+                accountingItem.CostOfGoods = row.Field<decimal>("Varekostnad"); // 4005
+                accountingItem.CostForReselling = row.Field<decimal>("Forbruk for videresalg"); // 4300
+                accountingItem.CostForSalary = row.Field<decimal>("Lønn");  // 5000
+                accountingItem.CostForSalaryTax = row.Field<decimal>("Arb.giver avgift");   // 5400
+                accountingItem.CostForDepreciation = row.Field<decimal>("Avskrivninger");   // 6000
+                accountingItem.CostForShipping = row.Field<decimal>("Frakt");   // 6100
+                accountingItem.CostForElectricity = row.Field<decimal>("Strøm");    // 6340 
+                accountingItem.CostForToolsInventory = row.Field<decimal>("Verktøy inventar");  // 6500
+                accountingItem.CostForMaintenance = row.Field<decimal>("Vedlikehold");  // 6695
+                accountingItem.CostForFacilities = row.Field<decimal>("Kontorkostnader");   // 6800 
+
+                accountingItem.CostOfData = row.Field<decimal>("Datakostnader");    // 6810 
+                accountingItem.CostOfPhoneInternetUse = row.Field<decimal>("Telefon Internett Bruk");   // 6900
+                accountingItem.PrivateUseOfECom = row.Field<decimal>("Privat bruk av el.kommunikasjon");    // 7098
+                accountingItem.CostForTravelAndAllowance = row.Field<decimal>("Reise og Diett");    // 7140
+                accountingItem.CostOfAdvertising = row.Field<decimal>("Reklamekostnader");  // 7330
+                accountingItem.CostOfOther = row.Field<decimal>("Diverse annet");   // 7700
+
+                accountingItem.FeesBank = row.Field<decimal>("Gebyrer Bank");   // 7770
+                accountingItem.FeesPaypal = row.Field<decimal>("Gebyrer Paypal");   // 7780
+                accountingItem.FeesStripe = row.Field<decimal>("Gebyrer Stripe");   // 7785 
+
+                accountingItem.CostForEstablishment = row.Field<decimal>("Etableringskostnader");   // 7790
+
+                accountingItem.IncomeFinance = row.Field<decimal>("Finansinntekter");   // 8099
+                accountingItem.CostOfFinance = row.Field<decimal>("Finanskostnader");   // 8199
+
+                accountingItem.Investments = row.Field<decimal>("Investeringer");   // 1200
+                accountingItem.AccountsReceivable = row.Field<decimal>("Kundefordringer");  // 1500
+                accountingItem.PersonalWithdrawal = row.Field<decimal>("Privat uttak");
+                accountingItem.PersonalDeposit = row.Field<decimal>("Privat innskudd");
+
+                existingAccountingItems.Add(row, accountingItem);
+            }
+
+            // reduce the old Accounting Spreadsheet and remove the entries that doesn't have a number
+            var existingAccountingItemsToDelete =
+                (from row in existingAccountingItems
+                 where
+                 row.Value.Number == 0
+                 orderby row.Value.Number ascending
+                 select row);
+
+            // identify elements from the new accounting items list that does not exist in the existing spreadsheet
+            var existingAccountingItemsToKeep = existingAccountingItems.Except(existingAccountingItemsToDelete);
+            var newAccountingElements = newAccountingItems.Except(existingAccountingItemsToKeep.Select(o => o.Value)).ToList();
+
+            // delete rows from table
+            int deleteRowTotalCount = existingAccountingItemsToDelete.Count();
+            Console.Out.WriteLine("Deleting {0} rows", deleteRowTotalCount);
+            if (deleteRowTotalCount > 0)
+            {
+                using (var googleBatchDeleteRequest = new GoogleSheetsBatchUpdateRequests())
                 {
-                    var accountingItem = new AccountingItem();
-                    accountingItem.Date = row.Field<DateTime>("Dato");
-                    accountingItem.Number = (int)row.Field<decimal>("Bilagsnr.");
-                    accountingItem.ArchiveReference = row.Field<string>("Arkivreferanse");
-                    accountingItem.TransactionID = row.Field<string>("TransaksjonsId");
-                    accountingItem.Type = row.Field<string>("Type");
-                    accountingItem.AccountingType = row.Field<string>("Regnskapstype");
-                    accountingItem.Text = row.Field<string>("Tekst");
-                    accountingItem.CustomerName = row.Field<string>("Kundenavn");
-                    accountingItem.ErrorMessage = row.Field<string>("Feilmelding");
-                    accountingItem.Gateway = row.Field<string>("Gateway");
-                    accountingItem.NumSale = row.Field<string>("Num Salg");
-                    accountingItem.NumPurchase = row.Field<string>("Num Kjøp");
-                    accountingItem.PurchaseOtherCurrency = row.Field<decimal>("Kjøp annen valuta");
-                    accountingItem.OtherCurrency = row.Field<string>("Annen valuta");
+                    int startRowNumber = existingAccountingItemsToDelete.FirstOrDefault().Key.Field<int>("RowNumber");
+                    int endRowNumber = existingAccountingItemsToDelete.Last().Key.Field<int>("RowNumber");
 
-                    accountingItem.AccountPaypal = row.Field<decimal>("Paypal");    // 1910
-                    accountingItem.AccountStripe = row.Field<decimal>("Stripe");    // 1915
-                    accountingItem.AccountVipps = row.Field<decimal>("Vipps");  // 1918
-                    accountingItem.AccountBank = row.Field<decimal>("Bank");    // 1920
-
-                    accountingItem.VATPurchase = row.Field<decimal>("MVA Kjøp");
-                    accountingItem.VATSales = row.Field<decimal>("MVA Salg");
-
-                    accountingItem.VATSettlementAccount = row.Field<decimal>("Oppgjørskonto mva");
-                    accountingItem.SalesVAT = row.Field<decimal>("Salg mva-pliktig");   // 3000
-                    accountingItem.SalesVATExempt = row.Field<decimal>("Salg avgiftsfritt");    // 3100
-
-                    accountingItem.CostOfGoods = row.Field<decimal>("Varekostnad"); // 4005
-                    accountingItem.CostForReselling = row.Field<decimal>("Forbruk for videresalg"); // 4300
-                    accountingItem.CostForSalary = row.Field<decimal>("Lønn");  // 5000
-                    accountingItem.CostForSalaryTax = row.Field<decimal>("Arb.giver avgift");   // 5400
-                    accountingItem.CostForDepreciation = row.Field<decimal>("Avskrivninger");   // 6000
-                    accountingItem.CostForShipping = row.Field<decimal>("Frakt");   // 6100
-                    accountingItem.CostForElectricity = row.Field<decimal>("Strøm");    // 6340 
-                    accountingItem.CostForToolsInventory = row.Field<decimal>("Verktøy inventar");  // 6500
-                    accountingItem.CostForMaintenance = row.Field<decimal>("Vedlikehold");  // 6695
-                    accountingItem.CostForFacilities = row.Field<decimal>("Kontorkostnader");   // 6800 
-
-                    accountingItem.CostOfData = row.Field<decimal>("Datakostnader");    // 6810 
-                    accountingItem.CostOfPhoneInternetUse = row.Field<decimal>("Telefon Internett Bruk");   // 6900
-                    accountingItem.PrivateUseOfECom = row.Field<decimal>("Privat bruk av el.kommunikasjon");    // 7098
-                    accountingItem.CostForTravelAndAllowance = row.Field<decimal>("Reise og Diett");    // 7140
-                    accountingItem.CostOfAdvertising = row.Field<decimal>("Reklamekostnader");  // 7330
-                    accountingItem.CostOfOther = row.Field<decimal>("Diverse annet");   // 7700
-
-                    accountingItem.FeesBank = row.Field<decimal>("Gebyrer Bank");   // 7770
-                    accountingItem.FeesPaypal = row.Field<decimal>("Gebyrer Paypal");   // 7780
-                    accountingItem.FeesStripe = row.Field<decimal>("Gebyrer Stripe");   // 7785 
-
-                    accountingItem.CostForEstablishment = row.Field<decimal>("Etableringskostnader");   // 7790
-
-                    accountingItem.IncomeFinance = row.Field<decimal>("Finansinntekter");   // 8099
-                    accountingItem.CostOfFinance = row.Field<decimal>("Finanskostnader");   // 8199
-
-                    accountingItem.Investments = row.Field<decimal>("Investeringer");   // 1200
-                    accountingItem.AccountsReceivable = row.Field<decimal>("Kundefordringer");  // 1500
-                    accountingItem.PersonalWithdrawal = row.Field<decimal>("Privat uttak");
-                    accountingItem.PersonalDeposit = row.Field<decimal>("Privat innskudd");
-
-                    existingAccountingItems.Add(row, accountingItem);
+                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber));
+                    googleBatchDeleteRequest.Execute();
                 }
+            }
 
-                // reduce the old Accounting Spreadsheet and remove the entries that doesn't have a number
-                var existingAccountingItemsToDelete =
-                    (from row in existingAccountingItems
-                     where
-                     row.Value.Number == 0
-                     orderby row.Value.Number ascending
-                     select row);
+            // how many new rows needs to be added
+            int newRowTotalCount = newAccountingElements.Count();
+            Console.Out.WriteLine("\nAppending {0} rows", newRowTotalCount);
+            if (newRowTotalCount > 0)
+            {
 
-                // identify elements from the new accounting items list that does not exist in the existing spreadsheet
-                var existingAccountingItemsToKeep = existingAccountingItems.Except(existingAccountingItemsToDelete);
-                var newAccountingElements = newAccountingItems.Except(existingAccountingItemsToKeep.Select(o => o.Value)).ToList();
-
-                // delete rows from table
-                
             }
         }
         #endregion
