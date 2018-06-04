@@ -164,17 +164,22 @@ namespace AccountingRobot
             return accountingHeaders;
         }
 
-        static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems)
+        static void AppendDataTable(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doAddSheet, bool doUseAccountingHeaders, bool doUseTableHeaders, bool doAutoResizeColumns, bool doUseSubTotals, bool doHideColumns)
         {
             var dt = GetDataTable(accountingItems);
 
             if (dt == null) return;
 
-            // Build Google Sheets spreadsheet 
-            int sheetId = googleSheetsFactory.AddSheet(GOOGLE_SHEET_NAME, dt.Columns.Count);
-            //int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(sheetName);
-            //googleSheetsFactory.DeleteRows(sheetId, 0, dt.Rows.Count + 1);
-            //googleSheetsFactory.AppendColumns(sheetId, dt.Columns.Count - 26); // a new spreadsheet has 26 columns 
+            // find or add google sheets spreadsheet 
+            int sheetId = -1;
+            if (doAddSheet)
+            {
+                sheetId = googleSheetsFactory.AddSheet(GOOGLE_SHEET_NAME, dt.Columns.Count);
+            }
+            else
+            {
+                sheetId = googleSheetsFactory.GetSheetIdFromSheetName(GOOGLE_SHEET_NAME);
+            }
 
             int startColumnIndex = 0;
             int endColumnIndex = dt.Columns.Count + 1;
@@ -184,25 +189,45 @@ namespace AccountingRobot
             using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
             {
                 // append headers
-                var accountingHeaders = GetAccountingHeaders();
-                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
+                if (doUseAccountingHeaders)
+                {
+                    var accountingHeaders = GetAccountingHeaders();
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
+                }
 
                 // append data table in row 2
-                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1));
+                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, doUseTableHeaders));
 
                 // set basic filter for all rows
-                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 1, startColumnIndex, endColumnIndex));
+                if (doUseTableHeaders)
+                {
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 1, startColumnIndex, endColumnIndex));
+                }
 
                 // auto resize columns
-                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex));
+                if (doAutoResizeColumns)
+                {
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex));
+                }
 
                 // insert subtotal in last row
-                // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                    string.Format("=SUBTOTAL(109;Q3:Q{0})", endRowIndex + 1),
-                    endRowIndex + 1, endRowIndex + 2, "Q", "AY")
-                );
+                if (doUseSubTotals)
+                {
+                    // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                        string.Format("=SUBTOTAL(109;Q3:Q{0})", endRowIndex + 1),
+                        endRowIndex + 1, endRowIndex + 2, "Q", "AY")
+                    );
+                }
+
+                // hide archive reference and transaction id
+                if (doHideColumns)
+                {
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.HideColumnsRequest(sheetId, "E", "F")
+                    );
+                }
 
                 // insert control formula in column 1
                 googleBatchUpdateRequest.Add(
@@ -263,14 +288,13 @@ namespace AccountingRobot
                     startRowIndex + 2, endRowIndex + 1, "AZ", "BA")
                 );
 
-                // hide archive reference and transaction id
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.HideColumnsRequest(sheetId, "E", "F")
-                );
-
                 googleBatchUpdateRequest.Execute();
             }
+        }
 
+        static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems)
+        {
+            AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true);
             Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
         }
 
@@ -285,64 +309,64 @@ namespace AccountingRobot
             foreach (DataRow row in dt.Rows)
             {
                 var accountingItem = new AccountingItem();
-                accountingItem.Date = row.Field<DateTime>("Dato");
-                accountingItem.Number = (int)row.Field<decimal>("Bilagsnr.");
-                accountingItem.ArchiveReference = row.Field<string>("Arkivreferanse");
-                accountingItem.TransactionID = row.Field<string>("TransaksjonsId");
-                accountingItem.Type = row.Field<string>("Type");
-                accountingItem.AccountingType = row.Field<string>("Regnskapstype");
-                accountingItem.Text = row.Field<string>("Tekst");
-                accountingItem.CustomerName = row.Field<string>("Kundenavn");
-                accountingItem.ErrorMessage = row.Field<string>("Feilmelding");
-                accountingItem.Gateway = row.Field<string>("Gateway");
-                accountingItem.NumSale = row.Field<string>("Num Salg");
-                accountingItem.NumPurchase = row.Field<string>("Num Kjøp");
-                accountingItem.PurchaseOtherCurrency = row.Field<decimal>("Kjøp annen valuta");
-                accountingItem.OtherCurrency = row.Field<string>("Annen valuta");
+                accountingItem.Date = GoogleSheetsUtils.GetField<DateTime>(row, "Dato");
+                accountingItem.Number = GoogleSheetsUtils.GetField<int>(row, "Bilagsnr.");
+                accountingItem.ArchiveReference = GoogleSheetsUtils.GetField<string>(row, "Arkivreferanse");
+                accountingItem.TransactionID = GoogleSheetsUtils.GetField<string>(row, "TransaksjonsId");
+                accountingItem.Type = GoogleSheetsUtils.GetField<string>(row, "Type");
+                accountingItem.AccountingType = GoogleSheetsUtils.GetField<string>(row, "Regnskapstype");
+                accountingItem.Text = GoogleSheetsUtils.GetField<string>(row, "Tekst");
+                accountingItem.CustomerName = GoogleSheetsUtils.GetField<string>(row, "Kundenavn");
+                accountingItem.ErrorMessage = GoogleSheetsUtils.GetField<string>(row, "Feilmelding");
+                accountingItem.Gateway = GoogleSheetsUtils.GetField<string>(row, "Gateway");
+                accountingItem.NumSale = GoogleSheetsUtils.GetField<string>(row, "Num Salg");
+                accountingItem.NumPurchase = GoogleSheetsUtils.GetField<string>(row, "Num Kjøp");
+                accountingItem.PurchaseOtherCurrency = GoogleSheetsUtils.GetField<decimal>(row, "Kjøp annen valuta");
+                accountingItem.OtherCurrency = GoogleSheetsUtils.GetField<string>(row, "Annen valuta");
 
-                accountingItem.AccountPaypal = row.Field<decimal>("Paypal");    // 1910
-                accountingItem.AccountStripe = row.Field<decimal>("Stripe");    // 1915
-                accountingItem.AccountVipps = row.Field<decimal>("Vipps");  // 1918
-                accountingItem.AccountBank = row.Field<decimal>("Bank");    // 1920
+                accountingItem.AccountPaypal = GoogleSheetsUtils.GetField<decimal>(row, "Paypal");    // 1910
+                accountingItem.AccountStripe = GoogleSheetsUtils.GetField<decimal>(row, "Stripe");    // 1915
+                accountingItem.AccountVipps = GoogleSheetsUtils.GetField<decimal>(row, "Vipps");  // 1918
+                accountingItem.AccountBank = GoogleSheetsUtils.GetField<decimal>(row, "Bank");    // 1920
 
-                accountingItem.VATPurchase = row.Field<decimal>("MVA Kjøp");
-                accountingItem.VATSales = row.Field<decimal>("MVA Salg");
+                accountingItem.VATPurchase = GoogleSheetsUtils.GetField<decimal>(row, "MVA Kjøp");
+                accountingItem.VATSales = GoogleSheetsUtils.GetField<decimal>(row, "MVA Salg");
 
-                accountingItem.VATSettlementAccount = row.Field<decimal>("Oppgjørskonto mva");
-                accountingItem.SalesVAT = row.Field<decimal>("Salg mva-pliktig");   // 3000
-                accountingItem.SalesVATExempt = row.Field<decimal>("Salg avgiftsfritt");    // 3100
+                accountingItem.VATSettlementAccount = GoogleSheetsUtils.GetField<decimal>(row, "Oppgjørskonto mva");
+                accountingItem.SalesVAT = GoogleSheetsUtils.GetField<decimal>(row, "Salg mva-pliktig");   // 3000
+                accountingItem.SalesVATExempt = GoogleSheetsUtils.GetField<decimal>(row, "Salg avgiftsfritt");    // 3100
 
-                accountingItem.CostOfGoods = row.Field<decimal>("Varekostnad"); // 4005
-                accountingItem.CostForReselling = row.Field<decimal>("Forbruk for videresalg"); // 4300
-                accountingItem.CostForSalary = row.Field<decimal>("Lønn");  // 5000
-                accountingItem.CostForSalaryTax = row.Field<decimal>("Arb.giver avgift");   // 5400
-                accountingItem.CostForDepreciation = row.Field<decimal>("Avskrivninger");   // 6000
-                accountingItem.CostForShipping = row.Field<decimal>("Frakt");   // 6100
-                accountingItem.CostForElectricity = row.Field<decimal>("Strøm");    // 6340 
-                accountingItem.CostForToolsInventory = row.Field<decimal>("Verktøy inventar");  // 6500
-                accountingItem.CostForMaintenance = row.Field<decimal>("Vedlikehold");  // 6695
-                accountingItem.CostForFacilities = row.Field<decimal>("Kontorkostnader");   // 6800 
+                accountingItem.CostOfGoods = GoogleSheetsUtils.GetField<decimal>(row, "Varekostnad"); // 4005
+                accountingItem.CostForReselling = GoogleSheetsUtils.GetField<decimal>(row, "Forbruk for videresalg"); // 4300
+                accountingItem.CostForSalary = GoogleSheetsUtils.GetField<decimal>(row, "Lønn");  // 5000
+                accountingItem.CostForSalaryTax = GoogleSheetsUtils.GetField<decimal>(row, "Arb.giver avgift");   // 5400
+                accountingItem.CostForDepreciation = GoogleSheetsUtils.GetField<decimal>(row, "Avskrivninger");   // 6000
+                accountingItem.CostForShipping = GoogleSheetsUtils.GetField<decimal>(row, "Frakt");   // 6100
+                accountingItem.CostForElectricity = GoogleSheetsUtils.GetField<decimal>(row, "Strøm");    // 6340 
+                accountingItem.CostForToolsInventory = GoogleSheetsUtils.GetField<decimal>(row, "Verktøy inventar");  // 6500
+                accountingItem.CostForMaintenance = GoogleSheetsUtils.GetField<decimal>(row, "Vedlikehold");  // 6695
+                accountingItem.CostForFacilities = GoogleSheetsUtils.GetField<decimal>(row, "Kontorkostnader");   // 6800 
 
-                accountingItem.CostOfData = row.Field<decimal>("Datakostnader");    // 6810 
-                accountingItem.CostOfPhoneInternetUse = row.Field<decimal>("Telefon Internett Bruk");   // 6900
-                accountingItem.PrivateUseOfECom = row.Field<decimal>("Privat bruk av el.kommunikasjon");    // 7098
-                accountingItem.CostForTravelAndAllowance = row.Field<decimal>("Reise og Diett");    // 7140
-                accountingItem.CostOfAdvertising = row.Field<decimal>("Reklamekostnader");  // 7330
-                accountingItem.CostOfOther = row.Field<decimal>("Diverse annet");   // 7700
+                accountingItem.CostOfData = GoogleSheetsUtils.GetField<decimal>(row, "Datakostnader");    // 6810 
+                accountingItem.CostOfPhoneInternetUse = GoogleSheetsUtils.GetField<decimal>(row, "Telefon Internett Bruk");   // 6900
+                accountingItem.PrivateUseOfECom = GoogleSheetsUtils.GetField<decimal>(row, "Privat bruk av el.kommunikasjon");    // 7098
+                accountingItem.CostForTravelAndAllowance = GoogleSheetsUtils.GetField<decimal>(row, "Reise og Diett");    // 7140
+                accountingItem.CostOfAdvertising = GoogleSheetsUtils.GetField<decimal>(row, "Reklamekostnader");  // 7330
+                accountingItem.CostOfOther = GoogleSheetsUtils.GetField<decimal>(row, "Diverse annet");   // 7700
 
-                accountingItem.FeesBank = row.Field<decimal>("Gebyrer Bank");   // 7770
-                accountingItem.FeesPaypal = row.Field<decimal>("Gebyrer Paypal");   // 7780
-                accountingItem.FeesStripe = row.Field<decimal>("Gebyrer Stripe");   // 7785 
+                accountingItem.FeesBank = GoogleSheetsUtils.GetField<decimal>(row, "Gebyrer Bank");   // 7770
+                accountingItem.FeesPaypal = GoogleSheetsUtils.GetField<decimal>(row, "Gebyrer Paypal");   // 7780
+                accountingItem.FeesStripe = GoogleSheetsUtils.GetField<decimal>(row, "Gebyrer Stripe");   // 7785 
 
-                accountingItem.CostForEstablishment = row.Field<decimal>("Etableringskostnader");   // 7790
+                accountingItem.CostForEstablishment = GoogleSheetsUtils.GetField<decimal>(row, "Etableringskostnader");   // 7790
 
-                accountingItem.IncomeFinance = row.Field<decimal>("Finansinntekter");   // 8099
-                accountingItem.CostOfFinance = row.Field<decimal>("Finanskostnader");   // 8199
+                accountingItem.IncomeFinance = GoogleSheetsUtils.GetField<decimal>(row, "Finansinntekter");   // 8099
+                accountingItem.CostOfFinance = GoogleSheetsUtils.GetField<decimal>(row, "Finanskostnader");   // 8199
 
-                accountingItem.Investments = row.Field<decimal>("Investeringer");   // 1200
-                accountingItem.AccountsReceivable = row.Field<decimal>("Kundefordringer");  // 1500
-                accountingItem.PersonalWithdrawal = row.Field<decimal>("Privat uttak");
-                accountingItem.PersonalDeposit = row.Field<decimal>("Privat innskudd");
+                accountingItem.Investments = GoogleSheetsUtils.GetField<decimal>(row, "Investeringer");   // 1200
+                accountingItem.AccountsReceivable = GoogleSheetsUtils.GetField<decimal>(row, "Kundefordringer");  // 1500
+                accountingItem.PersonalWithdrawal = GoogleSheetsUtils.GetField<decimal>(row, "Privat uttak");
+                accountingItem.PersonalDeposit = GoogleSheetsUtils.GetField<decimal>(row, "Privat innskudd");
 
                 existingAccountingItems.Add(row, accountingItem);
             }
@@ -368,8 +392,8 @@ namespace AccountingRobot
                 {
                     int startRowNumber = existingAccountingItemsToDelete.FirstOrDefault().Key.Field<int>("RowNumber");
                     int endRowNumber = existingAccountingItemsToDelete.Last().Key.Field<int>("RowNumber");
-
-                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber));
+                    // also delete the last sub total row 
+                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber + 1));
                     googleBatchDeleteRequest.Execute();
                 }
             }
@@ -379,7 +403,13 @@ namespace AccountingRobot
             Console.Out.WriteLine("\nAppending {0} rows", newRowTotalCount);
             if (newRowTotalCount > 0)
             {
-
+                using (var googleBatchInsertRequest = new GoogleSheetsBatchUpdateRequests())
+                {
+                    int startRowNumber = existingAccountingItemsToKeep.Last().Key.Field<int>("RowNumber");
+                    googleBatchInsertRequest.Add(GoogleSheetsRequests.GetInsertRowsRequest(sheetId, startRowNumber, startRowNumber + newRowTotalCount));
+                    googleBatchInsertRequest.Execute();
+                }                
+                //AppendDataTable(googleSheetsFactory, newAccountingElements, false, false, false, false, true, false);
             }
         }
         #endregion
@@ -479,64 +509,64 @@ namespace AccountingRobot
                 foreach (var row in table.DataRange.Rows())
                 {
                     var accountingItem = new AccountingItem();
-                    accountingItem.Date = ExcelUtils.GetExcelField<DateTime>(row, "Dato");
-                    accountingItem.Number = ExcelUtils.GetExcelField<int>(row, "Bilagsnr.");
-                    accountingItem.ArchiveReference = ExcelUtils.GetExcelField<string>(row, "Arkivreferanse");
-                    accountingItem.TransactionID = ExcelUtils.GetExcelField<string>(row, "TransaksjonsId");
-                    accountingItem.Type = ExcelUtils.GetExcelField<string>(row, "Type");
-                    accountingItem.AccountingType = ExcelUtils.GetExcelField<string>(row, "Regnskapstype");
-                    accountingItem.Text = ExcelUtils.GetExcelField<string>(row, "Tekst");
-                    accountingItem.CustomerName = ExcelUtils.GetExcelField<string>(row, "Kundenavn");
-                    accountingItem.ErrorMessage = ExcelUtils.GetExcelField<string>(row, "Feilmelding");
-                    accountingItem.Gateway = ExcelUtils.GetExcelField<string>(row, "Gateway");
-                    accountingItem.NumSale = ExcelUtils.GetExcelField<string>(row, "Num Salg");
-                    accountingItem.NumPurchase = ExcelUtils.GetExcelField<string>(row, "Num Kjøp");
-                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetExcelField<decimal>(row, "Kjøp annen valuta");
-                    accountingItem.OtherCurrency = ExcelUtils.GetExcelField<string>(row, "Annen valuta");
+                    accountingItem.Date = ExcelUtils.GetField<DateTime>(row, "Dato");
+                    accountingItem.Number = ExcelUtils.GetField<int>(row, "Bilagsnr.");
+                    accountingItem.ArchiveReference = ExcelUtils.GetField<string>(row, "Arkivreferanse");
+                    accountingItem.TransactionID = ExcelUtils.GetField<string>(row, "TransaksjonsId");
+                    accountingItem.Type = ExcelUtils.GetField<string>(row, "Type");
+                    accountingItem.AccountingType = ExcelUtils.GetField<string>(row, "Regnskapstype");
+                    accountingItem.Text = ExcelUtils.GetField<string>(row, "Tekst");
+                    accountingItem.CustomerName = ExcelUtils.GetField<string>(row, "Kundenavn");
+                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Feilmelding");
+                    accountingItem.Gateway = ExcelUtils.GetField<string>(row, "Gateway");
+                    accountingItem.NumSale = ExcelUtils.GetField<string>(row, "Num Salg");
+                    accountingItem.NumPurchase = ExcelUtils.GetField<string>(row, "Num Kjøp");
+                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetField<decimal>(row, "Kjøp annen valuta");
+                    accountingItem.OtherCurrency = ExcelUtils.GetField<string>(row, "Annen valuta");
 
-                    accountingItem.AccountPaypal = ExcelUtils.GetExcelField<decimal>(row, "Paypal");	// 1910
-                    accountingItem.AccountStripe = ExcelUtils.GetExcelField<decimal>(row, "Stripe");	// 1915
-                    accountingItem.AccountVipps = ExcelUtils.GetExcelField<decimal>(row, "Vipps");	// 1918
-                    accountingItem.AccountBank = ExcelUtils.GetExcelField<decimal>(row, "Bank");	// 1920
+                    accountingItem.AccountPaypal = ExcelUtils.GetField<decimal>(row, "Paypal");	// 1910
+                    accountingItem.AccountStripe = ExcelUtils.GetField<decimal>(row, "Stripe");	// 1915
+                    accountingItem.AccountVipps = ExcelUtils.GetField<decimal>(row, "Vipps");	// 1918
+                    accountingItem.AccountBank = ExcelUtils.GetField<decimal>(row, "Bank");	// 1920
 
-                    accountingItem.VATPurchase = ExcelUtils.GetExcelField<decimal>(row, "MVA Kjøp");
-                    accountingItem.VATSales = ExcelUtils.GetExcelField<decimal>(row, "MVA Salg");
+                    accountingItem.VATPurchase = ExcelUtils.GetField<decimal>(row, "MVA Kjøp");
+                    accountingItem.VATSales = ExcelUtils.GetField<decimal>(row, "MVA Salg");
 
-                    accountingItem.VATSettlementAccount = ExcelUtils.GetExcelField<decimal>(row, "Oppgjørskonto mva");
-                    accountingItem.SalesVAT = ExcelUtils.GetExcelField<decimal>(row, "Salg mva-pliktig");	// 3000
-                    accountingItem.SalesVATExempt = ExcelUtils.GetExcelField<decimal>(row, "Salg avgiftsfritt");	// 3100
+                    accountingItem.VATSettlementAccount = ExcelUtils.GetField<decimal>(row, "Oppgjørskonto mva");
+                    accountingItem.SalesVAT = ExcelUtils.GetField<decimal>(row, "Salg mva-pliktig");	// 3000
+                    accountingItem.SalesVATExempt = ExcelUtils.GetField<decimal>(row, "Salg avgiftsfritt");	// 3100
 
-                    accountingItem.CostOfGoods = ExcelUtils.GetExcelField<decimal>(row, "Varekostnad");	// 4005
-                    accountingItem.CostForReselling = ExcelUtils.GetExcelField<decimal>(row, "Forbruk for videresalg");	// 4300
-                    accountingItem.CostForSalary = ExcelUtils.GetExcelField<decimal>(row, "Lønn");	// 5000
-                    accountingItem.CostForSalaryTax = ExcelUtils.GetExcelField<decimal>(row, "Arb.giver avgift");	// 5400
-                    accountingItem.CostForDepreciation = ExcelUtils.GetExcelField<decimal>(row, "Avskrivninger");	// 6000
-                    accountingItem.CostForShipping = ExcelUtils.GetExcelField<decimal>(row, "Frakt");	// 6100
-                    accountingItem.CostForElectricity = ExcelUtils.GetExcelField<decimal>(row, "Strøm");	// 6340 
-                    accountingItem.CostForToolsInventory = ExcelUtils.GetExcelField<decimal>(row, "Verktøy inventar");	// 6500
-                    accountingItem.CostForMaintenance = ExcelUtils.GetExcelField<decimal>(row, "Vedlikehold");	// 6695
-                    accountingItem.CostForFacilities = ExcelUtils.GetExcelField<decimal>(row, "Kontorkostnader");	// 6800 
+                    accountingItem.CostOfGoods = ExcelUtils.GetField<decimal>(row, "Varekostnad");	// 4005
+                    accountingItem.CostForReselling = ExcelUtils.GetField<decimal>(row, "Forbruk for videresalg");	// 4300
+                    accountingItem.CostForSalary = ExcelUtils.GetField<decimal>(row, "Lønn");	// 5000
+                    accountingItem.CostForSalaryTax = ExcelUtils.GetField<decimal>(row, "Arb.giver avgift");	// 5400
+                    accountingItem.CostForDepreciation = ExcelUtils.GetField<decimal>(row, "Avskrivninger");	// 6000
+                    accountingItem.CostForShipping = ExcelUtils.GetField<decimal>(row, "Frakt");	// 6100
+                    accountingItem.CostForElectricity = ExcelUtils.GetField<decimal>(row, "Strøm");	// 6340 
+                    accountingItem.CostForToolsInventory = ExcelUtils.GetField<decimal>(row, "Verktøy inventar");	// 6500
+                    accountingItem.CostForMaintenance = ExcelUtils.GetField<decimal>(row, "Vedlikehold");	// 6695
+                    accountingItem.CostForFacilities = ExcelUtils.GetField<decimal>(row, "Kontorkostnader");	// 6800 
 
-                    accountingItem.CostOfData = ExcelUtils.GetExcelField<decimal>(row, "Datakostnader");	// 6810 
-                    accountingItem.CostOfPhoneInternetUse = ExcelUtils.GetExcelField<decimal>(row, "Telefon Internett Bruk");	// 6900
-                    accountingItem.PrivateUseOfECom = ExcelUtils.GetExcelField<decimal>(row, "Privat bruk av el.kommunikasjon");	// 7098
-                    accountingItem.CostForTravelAndAllowance = ExcelUtils.GetExcelField<decimal>(row, "Reise og Diett");	// 7140
-                    accountingItem.CostOfAdvertising = ExcelUtils.GetExcelField<decimal>(row, "Reklamekostnader");	// 7330
-                    accountingItem.CostOfOther = ExcelUtils.GetExcelField<decimal>(row, "Diverse annet");	// 7700
+                    accountingItem.CostOfData = ExcelUtils.GetField<decimal>(row, "Datakostnader");	// 6810 
+                    accountingItem.CostOfPhoneInternetUse = ExcelUtils.GetField<decimal>(row, "Telefon Internett Bruk");	// 6900
+                    accountingItem.PrivateUseOfECom = ExcelUtils.GetField<decimal>(row, "Privat bruk av el.kommunikasjon");	// 7098
+                    accountingItem.CostForTravelAndAllowance = ExcelUtils.GetField<decimal>(row, "Reise og Diett");	// 7140
+                    accountingItem.CostOfAdvertising = ExcelUtils.GetField<decimal>(row, "Reklamekostnader");	// 7330
+                    accountingItem.CostOfOther = ExcelUtils.GetField<decimal>(row, "Diverse annet");	// 7700
 
-                    accountingItem.FeesBank = ExcelUtils.GetExcelField<decimal>(row, "Gebyrer Bank");	// 7770
-                    accountingItem.FeesPaypal = ExcelUtils.GetExcelField<decimal>(row, "Gebyrer Paypal");	// 7780
-                    accountingItem.FeesStripe = ExcelUtils.GetExcelField<decimal>(row, "Gebyrer Stripe");	// 7785 
+                    accountingItem.FeesBank = ExcelUtils.GetField<decimal>(row, "Gebyrer Bank");	// 7770
+                    accountingItem.FeesPaypal = ExcelUtils.GetField<decimal>(row, "Gebyrer Paypal");	// 7780
+                    accountingItem.FeesStripe = ExcelUtils.GetField<decimal>(row, "Gebyrer Stripe");	// 7785 
 
-                    accountingItem.CostForEstablishment = ExcelUtils.GetExcelField<decimal>(row, "Etableringskostnader");	// 7790
+                    accountingItem.CostForEstablishment = ExcelUtils.GetField<decimal>(row, "Etableringskostnader");	// 7790
 
-                    accountingItem.IncomeFinance = ExcelUtils.GetExcelField<decimal>(row, "Finansinntekter");	// 8099
-                    accountingItem.CostOfFinance = ExcelUtils.GetExcelField<decimal>(row, "Finanskostnader");	// 8199
+                    accountingItem.IncomeFinance = ExcelUtils.GetField<decimal>(row, "Finansinntekter");	// 8099
+                    accountingItem.CostOfFinance = ExcelUtils.GetField<decimal>(row, "Finanskostnader");	// 8199
 
-                    accountingItem.Investments = ExcelUtils.GetExcelField<decimal>(row, "Investeringer");	// 1200
-                    accountingItem.AccountsReceivable = ExcelUtils.GetExcelField<decimal>(row, "Kundefordringer");	// 1500
-                    accountingItem.PersonalWithdrawal = ExcelUtils.GetExcelField<decimal>(row, "Privat uttak");
-                    accountingItem.PersonalDeposit = ExcelUtils.GetExcelField<decimal>(row, "Privat innskudd");
+                    accountingItem.Investments = ExcelUtils.GetField<decimal>(row, "Investeringer");	// 1200
+                    accountingItem.AccountsReceivable = ExcelUtils.GetField<decimal>(row, "Kundefordringer");	// 1500
+                    accountingItem.PersonalWithdrawal = ExcelUtils.GetField<decimal>(row, "Privat uttak");
+                    accountingItem.PersonalDeposit = ExcelUtils.GetField<decimal>(row, "Privat innskudd");
 
                     existingAccountingItems.Add(row, accountingItem);
                 }
@@ -678,65 +708,65 @@ namespace AccountingRobot
                 foreach (var row in table.DataRange.Rows())
                 {
                     var accountingItem = new AccountingItem();
-                    accountingItem.Date = ExcelUtils.GetExcelField<DateTime>(row, "Dato");
-                    accountingItem.Number = ExcelUtils.GetExcelField<int>(row, "Bilagsnr.");
-                    accountingItem.ArchiveReference = ExcelUtils.GetExcelField<string>(row, "Arkivreferanse");
-                    accountingItem.TransactionID = ExcelUtils.GetExcelField<string>(row, "TransaksjonsId");
-                    accountingItem.Type = ExcelUtils.GetExcelField<string>(row, "Type");
-                    accountingItem.AccountingType = ExcelUtils.GetExcelField<string>(row, "Regnskapstype");
-                    accountingItem.Text = ExcelUtils.GetExcelField<string>(row, "Tekst");
-                    accountingItem.CustomerName = ExcelUtils.GetExcelField<string>(row, "Kundenavn");
-                    accountingItem.ErrorMessage = ExcelUtils.GetExcelField<string>(row, "Feilmelding");
-                    accountingItem.Gateway = ExcelUtils.GetExcelField<string>(row, "Gateway");
-                    accountingItem.NumSale = ExcelUtils.GetExcelField<string>(row, "Num Salg");
-                    accountingItem.NumPurchase = ExcelUtils.GetExcelField<string>(row, "Num Kjøp");
-                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetExcelField<decimal>(row, "Kjøp annen valuta");
-                    accountingItem.OtherCurrency = ExcelUtils.GetExcelField<string>(row, "Annen valuta");
+                    accountingItem.Date = ExcelUtils.GetField<DateTime>(row, "Dato");
+                    accountingItem.Number = ExcelUtils.GetField<int>(row, "Bilagsnr.");
+                    accountingItem.ArchiveReference = ExcelUtils.GetField<string>(row, "Arkivreferanse");
+                    accountingItem.TransactionID = ExcelUtils.GetField<string>(row, "TransaksjonsId");
+                    accountingItem.Type = ExcelUtils.GetField<string>(row, "Type");
+                    accountingItem.AccountingType = ExcelUtils.GetField<string>(row, "Regnskapstype");
+                    accountingItem.Text = ExcelUtils.GetField<string>(row, "Tekst");
+                    accountingItem.CustomerName = ExcelUtils.GetField<string>(row, "Kundenavn");
+                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Feilmelding");
+                    accountingItem.Gateway = ExcelUtils.GetField<string>(row, "Gateway");
+                    accountingItem.NumSale = ExcelUtils.GetField<string>(row, "Num Salg");
+                    accountingItem.NumPurchase = ExcelUtils.GetField<string>(row, "Num Kjøp");
+                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetField<decimal>(row, "Kjøp annen valuta");
+                    accountingItem.OtherCurrency = ExcelUtils.GetField<string>(row, "Annen valuta");
 
-                    accountingItem.AccountPaypal = ExcelUtils.GetExcelField<decimal>(row, "Paypal");	// 1910
-                    accountingItem.AccountStripe = ExcelUtils.GetExcelField<decimal>(row, "Stripe");	// 1915
-                    accountingItem.AccountVipps = ExcelUtils.GetExcelField<decimal>(row, "Vipps");	// 1918
-                    accountingItem.AccountBank = ExcelUtils.GetExcelField<decimal>(row, "Bank");	// 1920
+                    accountingItem.AccountPaypal = ExcelUtils.GetField<decimal>(row, "Paypal");	// 1910
+                    accountingItem.AccountStripe = ExcelUtils.GetField<decimal>(row, "Stripe");	// 1915
+                    accountingItem.AccountVipps = ExcelUtils.GetField<decimal>(row, "Vipps");	// 1918
+                    accountingItem.AccountBank = ExcelUtils.GetField<decimal>(row, "Bank");	// 1920
 
-                    accountingItem.VATPurchase = ExcelUtils.GetExcelField<decimal>(row, "MVA Kjøp");
-                    accountingItem.VATSales = ExcelUtils.GetExcelField<decimal>(row, "MVA Salg");
+                    accountingItem.VATPurchase = ExcelUtils.GetField<decimal>(row, "MVA Kjøp");
+                    accountingItem.VATSales = ExcelUtils.GetField<decimal>(row, "MVA Salg");
 
-                    accountingItem.VATSettlementAccount = ExcelUtils.GetExcelField<decimal>(row, "Oppgjørskonto mva"); // 2740
-                    accountingItem.SalesVAT = ExcelUtils.GetExcelField<decimal>(row, "Salg mva-pliktig");	// 3000
-                    accountingItem.SalesVATExempt = ExcelUtils.GetExcelField<decimal>(row, "Salg avgiftsfritt");	// 3100
+                    accountingItem.VATSettlementAccount = ExcelUtils.GetField<decimal>(row, "Oppgjørskonto mva"); // 2740
+                    accountingItem.SalesVAT = ExcelUtils.GetField<decimal>(row, "Salg mva-pliktig");	// 3000
+                    accountingItem.SalesVATExempt = ExcelUtils.GetField<decimal>(row, "Salg avgiftsfritt");	// 3100
 
-                    accountingItem.CostOfGoods = ExcelUtils.GetExcelField<decimal>(row, "Varekostnad");	// 4005
-                    accountingItem.CostForReselling = ExcelUtils.GetExcelField<decimal>(row, "Forbruk for videresalg");	// 4300
-                    accountingItem.CostForSalary = ExcelUtils.GetExcelField<decimal>(row, "Lønn");	// 5000
-                    accountingItem.CostForSalaryTax = ExcelUtils.GetExcelField<decimal>(row, "Arb.giver avgift");	// 5400
-                    accountingItem.CostForDepreciation = ExcelUtils.GetExcelField<decimal>(row, "Avskrivninger");	// 6000
-                    accountingItem.CostForShipping = ExcelUtils.GetExcelField<decimal>(row, "Frakt");	// 6100
-                    accountingItem.CostForElectricity = ExcelUtils.GetExcelField<decimal>(row, "Strøm");	// 6340 
-                    accountingItem.CostForToolsInventory = ExcelUtils.GetExcelField<decimal>(row, "Verktøy inventar");	// 6500
-                    accountingItem.CostForMaintenance = ExcelUtils.GetExcelField<decimal>(row, "Vedlikehold");	// 6695
-                    accountingItem.CostForFacilities = ExcelUtils.GetExcelField<decimal>(row, "Kontorkostnader");	// 6800 
+                    accountingItem.CostOfGoods = ExcelUtils.GetField<decimal>(row, "Varekostnad");	// 4005
+                    accountingItem.CostForReselling = ExcelUtils.GetField<decimal>(row, "Forbruk for videresalg");	// 4300
+                    accountingItem.CostForSalary = ExcelUtils.GetField<decimal>(row, "Lønn");	// 5000
+                    accountingItem.CostForSalaryTax = ExcelUtils.GetField<decimal>(row, "Arb.giver avgift");	// 5400
+                    accountingItem.CostForDepreciation = ExcelUtils.GetField<decimal>(row, "Avskrivninger");	// 6000
+                    accountingItem.CostForShipping = ExcelUtils.GetField<decimal>(row, "Frakt");	// 6100
+                    accountingItem.CostForElectricity = ExcelUtils.GetField<decimal>(row, "Strøm");	// 6340 
+                    accountingItem.CostForToolsInventory = ExcelUtils.GetField<decimal>(row, "Verktøy inventar");	// 6500
+                    accountingItem.CostForMaintenance = ExcelUtils.GetField<decimal>(row, "Vedlikehold");	// 6695
+                    accountingItem.CostForFacilities = ExcelUtils.GetField<decimal>(row, "Kontorkostnader");	// 6800 
 
-                    accountingItem.CostOfData = ExcelUtils.GetExcelField<decimal>(row, "Datakostnader");	// 6810 
-                    accountingItem.CostOfPhoneInternetUse = ExcelUtils.GetExcelField<decimal>(row, "Telefon Internett Bruk");	// 6900
-                    accountingItem.PrivateUseOfECom = ExcelUtils.GetExcelField<decimal>(row, "Privat bruk av el.kommunikasjon");    // 7098
+                    accountingItem.CostOfData = ExcelUtils.GetField<decimal>(row, "Datakostnader");	// 6810 
+                    accountingItem.CostOfPhoneInternetUse = ExcelUtils.GetField<decimal>(row, "Telefon Internett Bruk");	// 6900
+                    accountingItem.PrivateUseOfECom = ExcelUtils.GetField<decimal>(row, "Privat bruk av el.kommunikasjon");    // 7098
 
-                    accountingItem.CostForTravelAndAllowance = ExcelUtils.GetExcelField<decimal>(row, "Reise og Diett");	// 7140
-                    accountingItem.CostOfAdvertising = ExcelUtils.GetExcelField<decimal>(row, "Reklamekostnader");	// 7330
-                    accountingItem.CostOfOther = ExcelUtils.GetExcelField<decimal>(row, "Diverse annet");	// 7700
+                    accountingItem.CostForTravelAndAllowance = ExcelUtils.GetField<decimal>(row, "Reise og Diett");	// 7140
+                    accountingItem.CostOfAdvertising = ExcelUtils.GetField<decimal>(row, "Reklamekostnader");	// 7330
+                    accountingItem.CostOfOther = ExcelUtils.GetField<decimal>(row, "Diverse annet");	// 7700
 
-                    accountingItem.FeesBank = ExcelUtils.GetExcelField<decimal>(row, "Gebyrer Bank");	// 7770
-                    accountingItem.FeesPaypal = ExcelUtils.GetExcelField<decimal>(row, "Gebyrer Paypal");	// 7780
-                    accountingItem.FeesStripe = ExcelUtils.GetExcelField<decimal>(row, "Gebyrer Stripe");	// 7785 
+                    accountingItem.FeesBank = ExcelUtils.GetField<decimal>(row, "Gebyrer Bank");	// 7770
+                    accountingItem.FeesPaypal = ExcelUtils.GetField<decimal>(row, "Gebyrer Paypal");	// 7780
+                    accountingItem.FeesStripe = ExcelUtils.GetField<decimal>(row, "Gebyrer Stripe");	// 7785 
 
-                    accountingItem.CostForEstablishment = ExcelUtils.GetExcelField<decimal>(row, "Etableringskostnader");	// 7790
+                    accountingItem.CostForEstablishment = ExcelUtils.GetField<decimal>(row, "Etableringskostnader");	// 7790
 
-                    accountingItem.IncomeFinance = ExcelUtils.GetExcelField<decimal>(row, "Finansinntekter");	// 8099
-                    accountingItem.CostOfFinance = ExcelUtils.GetExcelField<decimal>(row, "Finanskostnader");	// 8199
+                    accountingItem.IncomeFinance = ExcelUtils.GetField<decimal>(row, "Finansinntekter");	// 8099
+                    accountingItem.CostOfFinance = ExcelUtils.GetField<decimal>(row, "Finanskostnader");	// 8199
 
-                    accountingItem.Investments = ExcelUtils.GetExcelField<decimal>(row, "Investeringer");	// 1200
-                    accountingItem.AccountsReceivable = ExcelUtils.GetExcelField<decimal>(row, "Kundefordringer");	// 1500
-                    accountingItem.PersonalWithdrawal = ExcelUtils.GetExcelField<decimal>(row, "Privat uttak");
-                    accountingItem.PersonalDeposit = ExcelUtils.GetExcelField<decimal>(row, "Privat innskudd");
+                    accountingItem.Investments = ExcelUtils.GetField<decimal>(row, "Investeringer");	// 1200
+                    accountingItem.AccountsReceivable = ExcelUtils.GetField<decimal>(row, "Kundefordringer");	// 1500
+                    accountingItem.PersonalWithdrawal = ExcelUtils.GetField<decimal>(row, "Privat uttak");
+                    accountingItem.PersonalDeposit = ExcelUtils.GetField<decimal>(row, "Privat innskudd");
 
                     existingAccountingItems.Add(row, accountingItem);
                 }

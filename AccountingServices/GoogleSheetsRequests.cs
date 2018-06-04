@@ -8,20 +8,6 @@ namespace AccountingServices
 {
     public static class GoogleSheetsRequests
     {
-        public static Request GetAppendColumnsRequest(int sheetId, int numberOfColumns)
-        {
-            Request appendColumnsRequest = new Request()
-            {
-                AppendDimension = new AppendDimensionRequest()
-                {
-                    SheetId = sheetId,
-                    Dimension = "COLUMNS",
-                    Length = numberOfColumns
-                }
-            };
-            return appendColumnsRequest;
-        }
-
         public static Request GetAppendRowsRequest(int sheetId, int numberOfRows)
         {
             Request appendRowsRequest = new Request()
@@ -34,6 +20,20 @@ namespace AccountingServices
                 }
             };
             return appendRowsRequest;
+        }
+
+        public static Request GetAppendColumnsRequest(int sheetId, int numberOfColumns)
+        {
+            Request appendColumnsRequest = new Request()
+            {
+                AppendDimension = new AppendDimensionRequest()
+                {
+                    SheetId = sheetId,
+                    Dimension = "COLUMNS",
+                    Length = numberOfColumns
+                }
+            };
+            return appendColumnsRequest;
         }
 
         public static Request GetDeleteRowsRequest(int sheetId, int rowStartIndex, int rowEndIndex)
@@ -52,6 +52,64 @@ namespace AccountingServices
                 }
             };
             return deleteRowsRequest;
+        }
+
+        public static Request GetDeleteColumnsRequest(int sheetId, int columnStartIndex, int columnEndIndex)
+        {
+            Request deleteColumnsRequest = new Request()
+            {
+                DeleteDimension = new DeleteDimensionRequest()
+                {
+                    Range = new DimensionRange()
+                    {
+                        SheetId = sheetId,
+                        Dimension = "COLUMNS",
+                        StartIndex = columnStartIndex,
+                        EndIndex = columnEndIndex
+                    }
+                }
+            };
+            return deleteColumnsRequest;
+        }
+
+        public static Request GetInsertRowsRequest(int sheetId, int startRowIndex, int endRowIndex, bool doInheritFromBefore = false)
+        {
+            Request insertRowsRequest = new Request()
+            {
+                InsertDimension = new InsertDimensionRequest()
+                {
+                    Range = new DimensionRange()
+                    {
+                        SheetId = sheetId,
+                        Dimension = "ROWS",
+                        StartIndex = startRowIndex,
+                        EndIndex = endRowIndex
+                    },
+                    InheritFromBefore = false
+                }
+            };
+
+            return insertRowsRequest;
+        }
+
+        public static Request GetInsertColumnsRequest(int sheetId, int startColumnIndex, int endColumnIndex, bool doInheritFromBefore = false)
+        {
+            Request insertRowsRequest = new Request()
+            {
+                InsertDimension = new InsertDimensionRequest()
+                {
+                    Range = new DimensionRange()
+                    {
+                        SheetId = sheetId,
+                        Dimension = "COLUMNS",
+                        StartIndex = startColumnIndex,
+                        EndIndex = endColumnIndex
+                    },
+                    InheritFromBefore = false
+                }
+            };
+
+            return insertRowsRequest;
         }
 
         public static Request HideColumnsRequest(int sheetId, string startColumn, string endColumn)
@@ -116,15 +174,18 @@ namespace AccountingServices
             return request;
         }
 
-        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow)
+        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders = true)
         {
             var requests = new List<Request>();
 
             if (dt != null)
             {
                 // append headers
-                var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, dt.Columns, fgColorHeader, bgColorHeader);
-                requests.Add(new Request() { AppendCells = appendCellsRequestHeader });
+                if (doUseTableHeaders)
+                {
+                    var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, dt.Columns, fgColorHeader, bgColorHeader);
+                    requests.Add(new Request() { AppendCells = appendCellsRequestHeader });
+                }
 
                 // append rows
                 var appendCellsRequest = CreateAppendCellRequest(sheetId, dt.Rows, fgColorRow, bgColorRow);

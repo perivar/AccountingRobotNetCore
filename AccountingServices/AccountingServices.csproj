@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="2.0.2"/>
     <PackageReference Include="DotNetSeleniumExtras.WaitHelpers" Version="3.11.0"/>
     <PackageReference Include="Google.Apis.Sheets.v4" Version="1.33.1.1236"/>
+    <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0"/>
   </ItemGroup>
   <ItemGroup>
     <DotNetCliToolReference Include="Microsoft.Extensions.SecretManager.Tools" Version="2.0.1"/>

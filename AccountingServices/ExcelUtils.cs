@@ -65,7 +65,7 @@ namespace AccountingServices
             return DateTime.MinValue;
         }
 
-        public static T GetExcelField<T>(IXLTableRow row, string fieldName)
+        public static T GetField<T>(IXLTableRow row, string fieldName)
         {
             object value;
             try
