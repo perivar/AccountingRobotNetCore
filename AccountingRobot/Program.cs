@@ -411,10 +411,10 @@ namespace AccountingRobot
                 }
                 using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
                 {
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetInsertDataTableRequests(sheetId, dt, startRowNumber, 0, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
+                    var dtAdding = GetDataTable(newAccountingElements);
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetInsertDataTableRequests(sheetId, dtAdding, startRowNumber, 0, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
                     googleBatchUpdateRequest.Execute();
                 }
-                //AppendDataTable(googleSheetsFactory, newAccountingElements, false, false, false, false, true, false);
             }
         }
         #endregion
