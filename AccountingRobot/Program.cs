@@ -392,8 +392,7 @@ namespace AccountingRobot
                 {
                     int startRowNumber = existingAccountingItemsToDelete.FirstOrDefault().Key.Field<int>("RowNumber");
                     int endRowNumber = existingAccountingItemsToDelete.Last().Key.Field<int>("RowNumber");
-                    // also delete the last sub total row 
-                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber + 1));
+                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber));
                     googleBatchDeleteRequest.Execute();
                 }
             }
@@ -403,12 +402,18 @@ namespace AccountingRobot
             Console.Out.WriteLine("\nAppending {0} rows", newRowTotalCount);
             if (newRowTotalCount > 0)
             {
+                int startRowNumber = 0;
                 using (var googleBatchInsertRequest = new GoogleSheetsBatchUpdateRequests())
                 {
-                    int startRowNumber = existingAccountingItemsToKeep.Last().Key.Field<int>("RowNumber");
-                    googleBatchInsertRequest.Add(GoogleSheetsRequests.GetInsertRowsRequest(sheetId, startRowNumber, startRowNumber + newRowTotalCount));
+                    startRowNumber = existingAccountingItemsToKeep.Last().Key.Field<int>("RowNumber");
+                    googleBatchInsertRequest.Add(GoogleSheetsRequests.GetInsertRowsRequest(sheetId, startRowNumber, startRowNumber + newRowTotalCount, true));
                     googleBatchInsertRequest.Execute();
-                }                
+                }
+                using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
+                {
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetInsertDataTableRequests(sheetId, dt, startRowNumber, 0, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
+                    googleBatchUpdateRequest.Execute();
+                }
                 //AppendDataTable(googleSheetsFactory, newAccountingElements, false, false, false, false, true, false);
             }
         }

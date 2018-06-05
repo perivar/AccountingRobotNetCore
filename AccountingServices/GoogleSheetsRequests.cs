@@ -85,7 +85,7 @@ namespace AccountingServices
                         StartIndex = startRowIndex,
                         EndIndex = endRowIndex
                     },
-                    InheritFromBefore = false
+                    InheritFromBefore = doInheritFromBefore
                 }
             };
 
@@ -105,7 +105,7 @@ namespace AccountingServices
                         StartIndex = startColumnIndex,
                         EndIndex = endColumnIndex
                     },
-                    InheritFromBefore = false
+                    InheritFromBefore = doInheritFromBefore
                 }
             };
 
@@ -190,6 +190,31 @@ namespace AccountingServices
                 // append rows
                 var appendCellsRequest = CreateAppendCellRequest(sheetId, dt.Rows, fgColorRow, bgColorRow);
                 requests.Add(new Request() { AppendCells = appendCellsRequest });
+
+                return requests;
+            }
+
+            return null;
+        }
+
+        public static List<Request> GetInsertDataTableRequests(int sheetId, DataTable dt, int startRowIndex, int startColumnIndex, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders = true)
+        {
+            var requests = new List<Request>();
+
+            if (dt != null)
+            {
+                int rowCounter = 0;
+                // insert headers
+                if (doUseTableHeaders)
+                {
+                    rowCounter++;
+                    var updateCellsRequestHeader = CreateUpdateCellsRequest(sheetId, startRowIndex, startColumnIndex, dt.Columns, fgColorHeader, bgColorHeader);
+                    requests.Add(new Request() { UpdateCells = updateCellsRequestHeader });
+                }
+
+                // insert rows
+                var updateCellsRequest = CreateUpdateCellsRequest(sheetId, startRowIndex+rowCounter, startColumnIndex, dt.Rows, fgColorRow, bgColorRow);
+                requests.Add(new Request() { UpdateCells = updateCellsRequest });
 
                 return requests;
             }
@@ -468,6 +493,46 @@ namespace AccountingServices
             appendRequest.Rows = rowDataList;
             appendRequest.Fields = "*";
             return appendRequest;
+        }
+
+        private static UpdateCellsRequest CreateUpdateCellsRequest(int sheetId, int startRowIndex, int startColumnIndex, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
+        {
+            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader);
+
+            var rowDataList = new List<RowData>();
+            rowDataList.Add(rowData);
+
+            var updateRequest = new UpdateCellsRequest();
+            updateRequest.Start = new GridCoordinate()
+            {
+                SheetId = sheetId,
+                ColumnIndex = startColumnIndex,
+                RowIndex = startRowIndex,
+            };
+            updateRequest.Rows = rowDataList;
+            updateRequest.Fields = "*";
+            return updateRequest;
+        }
+
+        private static UpdateCellsRequest CreateUpdateCellsRequest(int sheetId, int startRowIndex, int startColumnIndex, DataRowCollection rows, int fgColorRow, int bgColorRow)
+        {
+            var rowDataList = new List<RowData>();
+            foreach (DataRow row in rows)
+            {
+                var rowData = CreateRowData(sheetId, row, fgColorRow, bgColorRow);
+                rowDataList.Add(rowData);
+            }
+
+            var updateRequest = new UpdateCellsRequest();
+            updateRequest.Start = new GridCoordinate()
+            {
+                SheetId = sheetId,
+                ColumnIndex = startColumnIndex,
+                RowIndex = startRowIndex,
+            };
+            updateRequest.Rows = rowDataList;
+            updateRequest.Fields = "*";
+            return updateRequest;
         }
 
         private static RowData CreateRowData(int sheetId, DataRow row, int fgColorRow, int bgColorRow)

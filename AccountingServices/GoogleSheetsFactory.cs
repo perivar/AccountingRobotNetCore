@@ -40,7 +40,8 @@ namespace AccountingServices
             // get sheet id by sheet name
             var spreadsheet = Service.Spreadsheets.Get(SPREADSHEET_ID).Execute();
             var sheet = spreadsheet.Sheets.Where(s => s.Properties.Title == sheetName).FirstOrDefault();
-            if (sheet != null && sheet.Properties != null) {
+            if (sheet != null && sheet.Properties != null)
+            {
                 return (int)sheet.Properties.SheetId;
             }
             return -1;
@@ -188,7 +189,7 @@ namespace AccountingServices
                             // February 1st 1900 at 3pm would be 33.625.
                             value = DateTime.FromOADate((double)value);
                         }
-                        workRow[k+1] = (value == null ? DBNull.Value : value);
+                        workRow[k + 1] = (value == null ? DBNull.Value : value);
                     }
                     dt.Rows.Add(workRow);
                 }
@@ -204,24 +205,27 @@ namespace AccountingServices
                     workRow[0] = startRowNumber + i;
 
                     // add the rest of the values
-                    for (int j = 0; j < rowValues.Count; j++)
+                    if (rowValues != null && rowValues.Count > 0)
                     {
-                        var pair = GetDataTypeAndValueFromDataRow(rowValues[j]);
-
-                        object value = pair.Value;
-                        if (pair.Key == typeof(DateTime))
+                        for (int j = 0; j < rowValues.Count; j++)
                         {
-                            // Google Sheets uses a form of epoch date that is commonly used in spreadsheets. 
-                            // The whole number portion of the value (left of the decimal) counts the days since 
-                            // December 30th 1899. The fractional portion (right of the decimal) 
-                            // counts the time as a fraction of one day. 
-                            // For example, January 1st 1900 at noon would be 2.5, 
-                            // 2 because it's two days after December 30th, 1899, 
-                            // and .5 because noon is half a day. 
-                            // February 1st 1900 at 3pm would be 33.625.
-                            value = DateTime.FromOADate((double)value);
+                            var pair = GetDataTypeAndValueFromDataRow(rowValues[j]);
+
+                            object value = pair.Value;
+                            if (pair.Key == typeof(DateTime))
+                            {
+                                // Google Sheets uses a form of epoch date that is commonly used in spreadsheets. 
+                                // The whole number portion of the value (left of the decimal) counts the days since 
+                                // December 30th 1899. The fractional portion (right of the decimal) 
+                                // counts the time as a fraction of one day. 
+                                // For example, January 1st 1900 at noon would be 2.5, 
+                                // 2 because it's two days after December 30th, 1899, 
+                                // and .5 because noon is half a day. 
+                                // February 1st 1900 at 3pm would be 33.625.
+                                value = DateTime.FromOADate((double)value);
+                            }
+                            workRow[j + 1] = (value == null ? DBNull.Value : value);
                         }
-                        workRow[j+1] = (value == null ? DBNull.Value : value);
                     }
                     dt.Rows.Add(workRow);
                 }
