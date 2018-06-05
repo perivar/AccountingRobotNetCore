@@ -143,6 +143,28 @@ namespace AccountingServices
             return hideColumnsRequest;
         }
 
+        public static Request FreezeRowsRequest(int sheetId)
+        {
+            Request freezeRowsRequest = new Request()
+            {
+                UpdateSheetProperties = new UpdateSheetPropertiesRequest()
+                {
+                    Properties = new SheetProperties()
+                    {
+                        SheetId = sheetId,
+                        GridProperties = new GridProperties()
+                        {
+                            FrozenRowCount = 2
+                        }
+                    },
+                    Fields = "gridProperties.frozenRowCount"
+                }
+            };
+            return freezeRowsRequest;
+        }
+
+
+
         public static Request GetFindReplaceRequest(int sheetId, string query, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
         {
             var findReplaceRequest = new FindReplaceRequest()

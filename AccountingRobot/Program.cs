@@ -164,7 +164,7 @@ namespace AccountingRobot
             return accountingHeaders;
         }
 
-        static void AppendDataTable(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doAddSheet, bool doUseAccountingHeaders, bool doUseTableHeaders, bool doAutoResizeColumns, bool doUseSubTotals, bool doHideColumns, bool doAddBasicFilter)
+        static void AppendDataTable(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doAddSheet, bool doUseAccountingHeaders, bool doUseTableHeaders, bool doAutoResizeColumns, bool doUseSubTotals, bool doHideColumns, bool doAddBasicFilter, bool doFreezeRows)
         {
             var dt = GetDataTable(accountingItems);
 
@@ -209,6 +209,14 @@ namespace AccountingRobot
                 {
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.HideColumnsRequest(sheetId, "E", "F")
+                    );
+                }
+
+                // freeze rows        
+                if (doFreezeRows)
+                {
+                    googleBatchUpdateRequest.Add(
+                        GoogleSheetsRequests.FreezeRowsRequest(sheetId)
                     );
                 }
 
@@ -344,7 +352,7 @@ namespace AccountingRobot
 
         static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems)
         {
-            AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true, true);
+            AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true, true, true);
             Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
         }
 
