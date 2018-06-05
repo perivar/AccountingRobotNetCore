@@ -182,9 +182,9 @@ namespace AccountingRobot
             }
 
             int startColumnIndex = 0;
-            int endColumnIndex = dt.Columns.Count + 1;
+            int endColumnIndex = dt.Columns.Count;
             int startRowIndex = 0;
-            int endRowIndex = dt.Rows.Count + 1;
+            int endRowIndex = dt.Rows.Count;
 
             using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
             {
@@ -195,13 +195,13 @@ namespace AccountingRobot
                     googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
                 }
 
-                // append data table in row 2
+                // append data table in row under the headers, typically row 2
                 googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, doUseTableHeaders));
 
-                // set basic filter for all rows
-                if (doUseTableHeaders)
+                // set basic filter for all rows, can only be applied to header
+                if (doUseTableHeaders && doUseAccountingHeaders)
                 {
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 1, startColumnIndex, endColumnIndex));
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 2, startColumnIndex, endColumnIndex));
                 }
 
                 // auto resize columns
@@ -216,8 +216,8 @@ namespace AccountingRobot
                     // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
                     googleBatchUpdateRequest.Add(
                         GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                        string.Format("=SUBTOTAL(109;Q3:Q{0})", endRowIndex + 1),
-                        endRowIndex + 1, endRowIndex + 2, "Q", "AY")
+                        string.Format("=SUBTOTAL(109;Q{0}:Q{1})", startRowIndex + 3, endRowIndex + 2),
+                        endRowIndex + 2, endRowIndex + 3, "Q", "AY")
                     );
                 }
 
@@ -229,67 +229,102 @@ namespace AccountingRobot
                     );
                 }
 
-                // insert control formula in column 1
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormulaAndTextFormatRequest(sheetId,
-                    string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", startRowIndex + 3),
-                    0xFF0000, 0xEAF1FA,
-                    startRowIndex + 2, endRowIndex + 1, 0, 1)
-                );
-
-                // insert sum pre rounding formula in next last column 
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                    string.Format("=SUM(Q{0}:AY{0})", startRowIndex + 3),
-                    startRowIndex + 2, endRowIndex + 1, endColumnIndex - 3, endColumnIndex - 2)
-                );
-
-                // insert sum rounding formula in last column
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                    string.Format("=ROUND(AZ{0};2)", startRowIndex + 3),
-                    startRowIndex + 2, endRowIndex + 1, endColumnIndex - 2, endColumnIndex - 1)
-                );
-
-                // add VAT Sales column
-                string vatSales = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25)*0,25;\" \")", startRowIndex + 3);
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormulaRequest(sheetId,
-                    vatSales,
-                    startRowIndex + 2, endRowIndex + 1, "V", "V")
-                );
-
-                // add VAT Exempt column
-                string salesVATExempt = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25);\" \")", startRowIndex + 3);
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormulaRequest(sheetId,
-                    salesVATExempt,
-                    startRowIndex + 2, endRowIndex + 1, "X", "X")
-                );
-
-                // set colors green
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormatRequest(sheetId,
-                    0x000000, 0xEBF1DE,
-                    startRowIndex + 2, endRowIndex + 1, "U", "V")
-                );
-
-                // set colors blue
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormatRequest(sheetId,
-                    0x000000, 0xC5D9F1,
-                    startRowIndex + 2, endRowIndex + 1, "AV", "AY")
-                );
-
-                // set colors red
-                googleBatchUpdateRequest.Add(
-                    GoogleSheetsRequests.GetFormatRequest(sheetId,
-                    0x000000, 0xF2DCDB,
-                    startRowIndex + 2, endRowIndex + 1, "AZ", "BA")
-                );
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex + 2, endRowIndex + 2, 1);
 
                 googleBatchUpdateRequest.Execute();
             }
+        }
+
+        static void InsertDataTable(GoogleSheetsFactory googleSheetsFactory, DataTable dt, bool doAddSheet, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, int rowFormulaOffset)
+        {
+            // find or add google sheets spreadsheet 
+            int sheetId = -1;
+            if (doAddSheet)
+            {
+                sheetId = googleSheetsFactory.AddSheet(GOOGLE_SHEET_NAME, dt.Columns.Count);
+            }
+            else
+            {
+                sheetId = googleSheetsFactory.GetSheetIdFromSheetName(GOOGLE_SHEET_NAME);
+            }
+
+            using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
+            {
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetInsertDataTableRequests(sheetId,
+                    dt,
+                    startRowIndex, startColumnIndex,
+                    0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
+
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex, endRowIndex, rowFormulaOffset);
+
+                googleBatchUpdateRequest.Execute();
+            }
+        }
+
+        static void ApplyGoogleSheetFormatting(GoogleSheetsBatchUpdateRequests googleBatchUpdateRequest, int sheetId, int startRowIndex, int endRowIndex, int rowFormulaOffset)
+        {
+            // calculate row offset for the forumlas
+            int formulaRowIndex = startRowIndex + rowFormulaOffset;
+
+            // insert control formula in column 1
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormulaAndTextFormatRequest(sheetId,
+                string.Format("=IF(BA{0}=0;\" \";\"!!FEIL!!\")", formulaRowIndex),
+                0xFF0000, 0xEAF1FA,
+                startRowIndex, endRowIndex, 0, 1)
+            );
+
+            // insert sum pre rounding formula in next last column 
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                string.Format("=SUM(Q{0}:AY{0})", formulaRowIndex),
+                startRowIndex, endRowIndex, "AZ", "AZ")
+            );
+
+            // insert sum rounding formula in last column
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                string.Format("=ROUND(AZ{0};2)", formulaRowIndex),
+                startRowIndex, endRowIndex, "BA", "BA")
+            );
+
+            // add VAT Sales column
+            string vatSales = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25)*0,25;\" \")", formulaRowIndex);
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                vatSales,
+                startRowIndex, endRowIndex, "V", "V")
+            );
+
+            // add VAT Exempt column
+            string salesVATExempt = string.Format("=IF(AND(P{0}=\"NOK\";H{0}=\"SHOPIFY\");-(O{0}/1,25);\" \")", formulaRowIndex);
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormulaRequest(sheetId,
+                salesVATExempt,
+                startRowIndex, endRowIndex, "X", "X")
+            );
+
+            // set colors green
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormatRequest(sheetId,
+                0x000000, 0xEBF1DE,
+                startRowIndex, endRowIndex, "U", "V")
+            );
+
+            // set colors blue
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormatRequest(sheetId,
+                0x000000, 0xC5D9F1,
+                startRowIndex, endRowIndex, "AV", "AY")
+            );
+
+            // set colors red
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetFormatRequest(sheetId,
+                0x000000, 0xF2DCDB,
+                startRowIndex, endRowIndex, "AZ", "BA")
+            );
         }
 
         static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems)
@@ -409,12 +444,15 @@ namespace AccountingRobot
                     googleBatchInsertRequest.Add(GoogleSheetsRequests.GetInsertRowsRequest(sheetId, startRowNumber, startRowNumber + newRowTotalCount, true));
                     googleBatchInsertRequest.Execute();
                 }
-                using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
-                {
-                    var dtAdding = GetDataTable(newAccountingElements);
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetInsertDataTableRequests(sheetId, dtAdding, startRowNumber, 0, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
-                    googleBatchUpdateRequest.Execute();
-                }
+
+                var dtToInsert = GetDataTable(newAccountingElements);
+                if (dtToInsert == null) return;
+
+                int startRowIndex = startRowNumber;
+                int endRowIndex = startRowNumber + newRowTotalCount;
+                int startColumnIndex = 0;
+                int endColumnIndex = dtToInsert.Columns.Count + 1;
+                InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, 1);
             }
         }
         #endregion

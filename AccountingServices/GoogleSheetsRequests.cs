@@ -174,7 +174,12 @@ namespace AccountingServices
             return request;
         }
 
-        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders = true)
+        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, bool doUseTableHeaders)
+        {
+            return GetAppendDataTableRequests(sheetId, dt, -1, -1, -1, -1, doUseTableHeaders);
+        }
+
+        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders)
         {
             var requests = new List<Request>();
 
@@ -197,7 +202,12 @@ namespace AccountingServices
             return null;
         }
 
-        public static List<Request> GetInsertDataTableRequests(int sheetId, DataTable dt, int startRowIndex, int startColumnIndex, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders = true)
+        public static List<Request> GetInsertDataTableRequests(int sheetId, DataTable dt, int startRowIndex, int startColumnIndex, bool doUseTableHeaders)
+        {
+            return GetInsertDataTableRequests(sheetId, dt, startRowIndex, startColumnIndex, -1, -1, -1, -1, doUseTableHeaders);
+        }
+
+        public static List<Request> GetInsertDataTableRequests(int sheetId, DataTable dt, int startRowIndex, int startColumnIndex, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders)
         {
             var requests = new List<Request>();
 
@@ -213,7 +223,7 @@ namespace AccountingServices
                 }
 
                 // insert rows
-                var updateCellsRequest = CreateUpdateCellsRequest(sheetId, startRowIndex+rowCounter, startColumnIndex, dt.Rows, fgColorRow, bgColorRow);
+                var updateCellsRequest = CreateUpdateCellsRequest(sheetId, startRowIndex + rowCounter, startColumnIndex, dt.Rows, fgColorRow, bgColorRow);
                 requests.Add(new Request() { UpdateCells = updateCellsRequest });
 
                 return requests;
@@ -510,7 +520,7 @@ namespace AccountingServices
                 RowIndex = startRowIndex,
             };
             updateRequest.Rows = rowDataList;
-            updateRequest.Fields = "*";
+            updateRequest.Fields = "UserEnteredValue,UserEnteredFormat";
             return updateRequest;
         }
 
@@ -531,7 +541,7 @@ namespace AccountingServices
                 RowIndex = startRowIndex,
             };
             updateRequest.Rows = rowDataList;
-            updateRequest.Fields = "*";
+            updateRequest.Fields = "UserEnteredValue,UserEnteredFormat";
             return updateRequest;
         }
 
@@ -660,54 +670,12 @@ namespace AccountingServices
 
         private static RowData CreateRowData(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
         {
-            // https://github.com/opendatakit/aggregate/blob/master/src/main/java/org/opendatakit/aggregate/externalservice/GoogleSpreadsheet.java
+            string[] columnNames = columns.Cast<DataColumn>()
+                                             .Select(x => x.ColumnName)
+                                             .ToArray();
 
-            // define header cell format
-            var headerFormat = new CellFormat()
-            {
-                BackgroundColor = GetColor(bgColorHeader),
-                HorizontalAlignment = "CENTER",
-                TextFormat = new TextFormat()
-                {
-                    ForegroundColor = GetColor(fgColorHeader),
-                    FontSize = 11,
-                    Bold = true
-                },
-                Borders = new Borders()
-                {
-                    Bottom = new Border()
-                    {
-                        Style = "DASHED",
-                        Width = 2
-                    },
-                    Top = new Border()
-                    {
-                        Style = "DASHED",
-                        Width = 2
-                    }
-                }
-            };
+            return CreateRowData(sheetId, columnNames, fgColorHeader, bgColorHeader);
 
-            var cellDataList = new List<CellData>();
-            foreach (DataColumn item in columns)
-            {
-                var cellData = new CellData();
-                cellData.UserEnteredValue = new ExtendedValue();
-
-                if (item != null)
-                {
-                    cellData.UserEnteredValue.StringValue = item.ColumnName;
-                    cellData.UserEnteredFormat = headerFormat;
-                }
-                cellDataList.Add(cellData);
-            }
-
-            var rowData = new RowData()
-            {
-                Values = cellDataList
-            };
-
-            return rowData;
         }
 
         private static RowData CreateRowData(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader)
@@ -715,30 +683,34 @@ namespace AccountingServices
             // https://github.com/opendatakit/aggregate/blob/master/src/main/java/org/opendatakit/aggregate/externalservice/GoogleSpreadsheet.java
 
             // define header cell format
-            var headerFormat = new CellFormat()
+            CellFormat headerFormat = null;
+            if (bgColorHeader > 0 && fgColorHeader > 0)
             {
-                BackgroundColor = GetColor(bgColorHeader),
-                HorizontalAlignment = "CENTER",
-                TextFormat = new TextFormat()
+                headerFormat = new CellFormat()
                 {
-                    ForegroundColor = GetColor(fgColorHeader),
-                    FontSize = 11,
-                    Bold = true
-                },
-                Borders = new Borders()
-                {
-                    Bottom = new Border()
+                    BackgroundColor = GetColor(bgColorHeader),
+                    HorizontalAlignment = "CENTER",
+                    TextFormat = new TextFormat()
                     {
-                        Style = "DASHED",
-                        Width = 2
+                        ForegroundColor = GetColor(fgColorHeader),
+                        FontSize = 11,
+                        Bold = true
                     },
-                    Top = new Border()
+                    Borders = new Borders()
                     {
-                        Style = "DASHED",
-                        Width = 2
+                        Bottom = new Border()
+                        {
+                            Style = "DASHED",
+                            Width = 2
+                        },
+                        Top = new Border()
+                        {
+                            Style = "DASHED",
+                            Width = 2
+                        }
                     }
-                }
-            };
+                };
+            }
 
             var cellDataList = new List<CellData>();
             foreach (var item in columns)
@@ -765,7 +737,9 @@ namespace AccountingServices
 
         public static Color GetColor(int argb)
         {
-            System.Drawing.Color c = System.Drawing.Color.FromArgb(argb);
+            if (argb < 0) return null;
+
+            var c = System.Drawing.Color.FromArgb(argb);
 
             // convert to float values
             var c1 = new Color()
