@@ -252,6 +252,14 @@ namespace AccountingServices
             return addSheetRequest;
         }
 
+        public static Request GetBasicFilterRequest(int sheetId, int startRowIndex, int endRowIndex, string startColumn, string endColumn)
+        {
+            int startColumnIndex = GoogleSheetsRequests.ColumnNumber(startColumn) - 1;
+            int endColumnIndex = GoogleSheetsRequests.ColumnNumber(endColumn);
+
+            return GetBasicFilterRequest(sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex);
+        }
+
         public static Request GetBasicFilterRequest(int sheetId, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
         {
             var filterRequest = new Request()
@@ -328,6 +336,52 @@ namespace AccountingServices
                 }
             };
             return formulaRequest;
+        }
+
+        public static Request GetNumberFormatRequest(int sheetId, string numberFormatPattern, int fgColor, int bgColor, int startRowIndex, int endRowIndex, string startColumn, string endColumn)
+        {
+            int startColumnIndex = GoogleSheetsRequests.ColumnNumber(startColumn) - 1;
+            int endColumnIndex = GoogleSheetsRequests.ColumnNumber(endColumn);
+
+            return GetNumberFormatRequest(sheetId, numberFormatPattern, fgColor, bgColor, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex);
+        }
+
+        public static Request GetNumberFormatRequest(int sheetId, string numberFormatPattern, int fgColor, int bgColor, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex)
+        {
+            var numberFormat = new CellFormat()
+            {
+                NumberFormat = new NumberFormat()
+                {
+                    Type = "NUMBER",
+                    Pattern = numberFormatPattern // e.g. "#,##0.00;[Red]-#,##0.00;"
+                },
+                BackgroundColor = GoogleSheetsRequests.GetColor(bgColor),
+                TextFormat = new TextFormat()
+                {
+                    ForegroundColor = GoogleSheetsRequests.GetColor(fgColor)
+                }
+            };
+
+            var numberFormatRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartColumnIndex = startColumnIndex,
+                        EndColumnIndex = endColumnIndex,
+                        StartRowIndex = startRowIndex,
+                        EndRowIndex = endRowIndex
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredFormat = numberFormat
+                    },
+                    Fields = "UserEnteredFormat"
+                }
+            };
+            return numberFormatRequest;
         }
 
         public static Request GetFormulaAndNumberFormatRequest(int sheetId, string formulaValue, int startRowIndex, int endRowIndex, string startColumn, string endColumn)
@@ -684,33 +738,30 @@ namespace AccountingServices
 
             // define header cell format
             CellFormat headerFormat = null;
-            if (bgColorHeader > 0 && fgColorHeader > 0)
+            headerFormat = new CellFormat()
             {
-                headerFormat = new CellFormat()
+                BackgroundColor = GetColor(bgColorHeader),
+                HorizontalAlignment = "CENTER",
+                TextFormat = new TextFormat()
                 {
-                    BackgroundColor = GetColor(bgColorHeader),
-                    HorizontalAlignment = "CENTER",
-                    TextFormat = new TextFormat()
+                    ForegroundColor = GetColor(fgColorHeader),
+                    FontSize = 11,
+                    Bold = true
+                },
+                Borders = new Borders()
+                {
+                    Bottom = new Border()
                     {
-                        ForegroundColor = GetColor(fgColorHeader),
-                        FontSize = 11,
-                        Bold = true
+                        Style = "DASHED",
+                        Width = 2
                     },
-                    Borders = new Borders()
+                    Top = new Border()
                     {
-                        Bottom = new Border()
-                        {
-                            Style = "DASHED",
-                            Width = 2
-                        },
-                        Top = new Border()
-                        {
-                            Style = "DASHED",
-                            Width = 2
-                        }
+                        Style = "DASHED",
+                        Width = 2
                     }
-                };
-            }
+                }
+            };
 
             var cellDataList = new List<CellData>();
             foreach (var item in columns)

@@ -164,7 +164,7 @@ namespace AccountingRobot
             return accountingHeaders;
         }
 
-        static void AppendDataTable(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doAddSheet, bool doUseAccountingHeaders, bool doUseTableHeaders, bool doAutoResizeColumns, bool doUseSubTotals, bool doHideColumns)
+        static void AppendDataTable(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doAddSheet, bool doUseAccountingHeaders, bool doUseTableHeaders, bool doAutoResizeColumns, bool doUseSubTotals, bool doHideColumns, bool doAddBasicFilter)
         {
             var dt = GetDataTable(accountingItems);
 
@@ -198,12 +198,6 @@ namespace AccountingRobot
                 // append data table in row under the headers, typically row 2
                 googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, doUseTableHeaders));
 
-                // set basic filter for all rows, can only be applied to header
-                if (doUseTableHeaders && doUseAccountingHeaders)
-                {
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetBasicFilterRequest(sheetId, startRowIndex + 1, endRowIndex + 2, startColumnIndex, endColumnIndex));
-                }
-
                 // auto resize columns
                 if (doAutoResizeColumns)
                 {
@@ -218,13 +212,13 @@ namespace AccountingRobot
                     );
                 }
 
-                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex + 2, endRowIndex + 2, doUseSubTotals);
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex + 2, endRowIndex + 2, doUseSubTotals, doAddBasicFilter);
 
                 googleBatchUpdateRequest.Execute();
             }
         }
 
-        static void InsertDataTable(GoogleSheetsFactory googleSheetsFactory, DataTable dt, bool doAddSheet, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, bool doUseSubTotals)
+        static void InsertDataTable(GoogleSheetsFactory googleSheetsFactory, DataTable dt, bool doAddSheet, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, bool doUseSubTotals, bool doAddBasicFilter)
         {
             // find or add google sheets spreadsheet 
             int sheetId = -1;
@@ -245,16 +239,19 @@ namespace AccountingRobot
                     startRowIndex, startColumnIndex,
                     0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
 
-                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex, endRowIndex, doUseSubTotals);
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex, endRowIndex, doUseSubTotals, doAddBasicFilter);
 
                 googleBatchUpdateRequest.Execute();
             }
         }
 
-        static void ApplyGoogleSheetFormatting(GoogleSheetsBatchUpdateRequests googleBatchUpdateRequest, int sheetId, int startRowIndex, int endRowIndex, bool doUseSubTotals)
+        static void ApplyGoogleSheetFormatting(GoogleSheetsBatchUpdateRequests googleBatchUpdateRequest, int sheetId, int startRowIndex, int endRowIndex, bool doUseSubTotals, bool doAddBasicFilter)
         {
             // calculate row offset for the forumlas
             int formulaRowIndex = startRowIndex + 1;
+            int subTotalStartRow = 3;
+            int periodStartRowIndex = 2;
+            int basicFilterStartRowIndex = 1;
 
             // insert subtotal in last row
             if (doUseSubTotals)
@@ -262,9 +259,27 @@ namespace AccountingRobot
                 // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
                 googleBatchUpdateRequest.Add(
                     GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                    string.Format("=SUBTOTAL(109;Q{0}:Q{1})", 3, endRowIndex),
+                    string.Format("=SUBTOTAL(109;Q{0}:Q{1})", subTotalStartRow, endRowIndex),
                     endRowIndex, endRowIndex + 1, "Q", "AY")
                 );
+            }
+
+            // set int format to Periode and Bilagsnr
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetNumberFormatRequest(sheetId,
+                "0", 0x000000, 0xdbe5f1, periodStartRowIndex, endRowIndex, "B", "B"));
+
+            googleBatchUpdateRequest.Add(
+                GoogleSheetsRequests.GetNumberFormatRequest(sheetId,
+                "0", 0x000000, 0xdbe5f1, periodStartRowIndex, endRowIndex, "D", "D"));
+
+
+            // set basic filter for all rows, can only be applied to header
+            if (doAddBasicFilter)
+            {
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetBasicFilterRequest(sheetId,
+                    basicFilterStartRowIndex, endRowIndex, "A", "BA"));
             }
 
             // insert control formula in column 1
@@ -329,7 +344,7 @@ namespace AccountingRobot
 
         static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems)
         {
-            AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true);
+            AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true, true);
             Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
         }
 
@@ -344,6 +359,7 @@ namespace AccountingRobot
             foreach (DataRow row in dt.Rows)
             {
                 var accountingItem = new AccountingItem();
+                // cSpell:disable
                 accountingItem.Date = GoogleSheetsUtils.GetField<DateTime>(row, "Dato");
                 accountingItem.Number = GoogleSheetsUtils.GetField<int>(row, "Bilagsnr.");
                 accountingItem.ArchiveReference = GoogleSheetsUtils.GetField<string>(row, "Arkivreferanse");
@@ -402,6 +418,7 @@ namespace AccountingRobot
                 accountingItem.AccountsReceivable = GoogleSheetsUtils.GetField<decimal>(row, "Kundefordringer");  // 1500
                 accountingItem.PersonalWithdrawal = GoogleSheetsUtils.GetField<decimal>(row, "Privat uttak");
                 accountingItem.PersonalDeposit = GoogleSheetsUtils.GetField<decimal>(row, "Privat innskudd");
+                // cSpell:enable
 
                 existingAccountingItems.Add(row, accountingItem);
             }
@@ -434,13 +451,21 @@ namespace AccountingRobot
 
             // how many new rows needs to be added
             int newRowTotalCount = newAccountingElements.Count();
+            int existingTotalCount = existingAccountingItemsToKeep.Count();
             Console.Out.WriteLine("\nAppending {0} rows", newRowTotalCount);
             if (newRowTotalCount > 0)
             {
                 int startRowNumber = 0;
                 using (var googleBatchInsertRequest = new GoogleSheetsBatchUpdateRequests())
                 {
-                    startRowNumber = existingAccountingItemsToKeep.Last().Key.Field<int>("RowNumber");
+                    if (existingTotalCount > 0)
+                    {
+                        startRowNumber = existingAccountingItemsToKeep.Last().Key.Field<int>("RowNumber");
+                    }
+                    else
+                    {
+                        startRowNumber = 2;
+                    }
                     googleBatchInsertRequest.Add(GoogleSheetsRequests.GetInsertRowsRequest(sheetId, startRowNumber, startRowNumber + newRowTotalCount, true));
                     googleBatchInsertRequest.Execute();
                 }
@@ -452,7 +477,7 @@ namespace AccountingRobot
                 int endRowIndex = startRowNumber + newRowTotalCount;
                 int startColumnIndex = 0;
                 int endColumnIndex = dtToInsert.Columns.Count + 1;
-                InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, true);
+                InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, true, true);
 
                 Console.Out.WriteLine("Successfully updated accounting file!");
             }
@@ -554,6 +579,7 @@ namespace AccountingRobot
                 foreach (var row in table.DataRange.Rows())
                 {
                     var accountingItem = new AccountingItem();
+                    // cSpell:disable
                     accountingItem.Date = ExcelUtils.GetField<DateTime>(row, "Dato");
                     accountingItem.Number = ExcelUtils.GetField<int>(row, "Bilagsnr.");
                     accountingItem.ArchiveReference = ExcelUtils.GetField<string>(row, "Arkivreferanse");
@@ -612,6 +638,7 @@ namespace AccountingRobot
                     accountingItem.AccountsReceivable = ExcelUtils.GetField<decimal>(row, "Kundefordringer");	// 1500
                     accountingItem.PersonalWithdrawal = ExcelUtils.GetField<decimal>(row, "Privat uttak");
                     accountingItem.PersonalDeposit = ExcelUtils.GetField<decimal>(row, "Privat innskudd");
+                    // cSpell:enable
 
                     existingAccountingItems.Add(row, accountingItem);
                 }
@@ -753,6 +780,7 @@ namespace AccountingRobot
                 foreach (var row in table.DataRange.Rows())
                 {
                     var accountingItem = new AccountingItem();
+                    // cSpell:disable
                     accountingItem.Date = ExcelUtils.GetField<DateTime>(row, "Dato");
                     accountingItem.Number = ExcelUtils.GetField<int>(row, "Bilagsnr.");
                     accountingItem.ArchiveReference = ExcelUtils.GetField<string>(row, "Arkivreferanse");
@@ -812,7 +840,7 @@ namespace AccountingRobot
                     accountingItem.AccountsReceivable = ExcelUtils.GetField<decimal>(row, "Kundefordringer");	// 1500
                     accountingItem.PersonalWithdrawal = ExcelUtils.GetField<decimal>(row, "Privat uttak");
                     accountingItem.PersonalDeposit = ExcelUtils.GetField<decimal>(row, "Privat innskudd");
-
+                    // cSpell:enable
                     existingAccountingItems.Add(row, accountingItem);
                 }
 
@@ -947,6 +975,7 @@ namespace AccountingRobot
             table.ShowTotalsRow = true;
 
             // set sum functions for each of the table columns 
+            // cSpell:disable
             table.Field("Paypal").TotalsRowFunction = XLTotalsRowFunction.Sum;              // 1910
             table.Field("Stripe").TotalsRowFunction = XLTotalsRowFunction.Sum;              // 1915
             table.Field("Vipps").TotalsRowFunction = XLTotalsRowFunction.Sum;               // 1918
@@ -990,12 +1019,13 @@ namespace AccountingRobot
             table.Field("Kundefordringer").TotalsRowFunction = XLTotalsRowFunction.Sum;         // 1500
             table.Field("Privat uttak").TotalsRowFunction = XLTotalsRowFunction.Sum;
             table.Field("Privat innskudd").TotalsRowFunction = XLTotalsRowFunction.Sum;
-
+            // cSpell:enable
         }
 
         static DataTable GetDataTable(List<AccountingItem> accountingItems)
         {
             DataTable dt = new DataTable();
+            // cSpell:disable            
             dt.Columns.Add("Kontroll", typeof(string));
 
             dt.Columns.Add("Periode", typeof(int));
@@ -1060,6 +1090,7 @@ namespace AccountingRobot
 
             dt.Columns.Add("Sum før avrunding", typeof(decimal));
             dt.Columns.Add("Sum", typeof(decimal));
+            // cSpell:enable
 
             foreach (var accountingItem in accountingItems)
             {
