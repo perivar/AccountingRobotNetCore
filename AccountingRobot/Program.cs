@@ -15,7 +15,7 @@ namespace AccountingRobot
 {
     partial class Program
     {
-        const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL2";
+        const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL";
 
         static void Main(string[] args)
         {
