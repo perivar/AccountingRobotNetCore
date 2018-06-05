@@ -210,17 +210,6 @@ namespace AccountingRobot
                     googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAutoResizeColumnsRequest(sheetId, startColumnIndex, endColumnIndex));
                 }
 
-                // insert subtotal in last row
-                if (doUseSubTotals)
-                {
-                    // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
-                    googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                        string.Format("=SUBTOTAL(109;Q{0}:Q{1})", startRowIndex + 3, endRowIndex + 2),
-                        endRowIndex + 2, endRowIndex + 3, "Q", "AY")
-                    );
-                }
-
                 // hide archive reference and transaction id
                 if (doHideColumns)
                 {
@@ -229,13 +218,13 @@ namespace AccountingRobot
                     );
                 }
 
-                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex + 2, endRowIndex + 2, 1);
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex + 2, endRowIndex + 2, doUseSubTotals);
 
                 googleBatchUpdateRequest.Execute();
             }
         }
 
-        static void InsertDataTable(GoogleSheetsFactory googleSheetsFactory, DataTable dt, bool doAddSheet, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, int rowFormulaOffset)
+        static void InsertDataTable(GoogleSheetsFactory googleSheetsFactory, DataTable dt, bool doAddSheet, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, bool doUseSubTotals)
         {
             // find or add google sheets spreadsheet 
             int sheetId = -1;
@@ -256,16 +245,27 @@ namespace AccountingRobot
                     startRowIndex, startColumnIndex,
                     0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
 
-                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex, endRowIndex, rowFormulaOffset);
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex, endRowIndex, doUseSubTotals);
 
                 googleBatchUpdateRequest.Execute();
             }
         }
 
-        static void ApplyGoogleSheetFormatting(GoogleSheetsBatchUpdateRequests googleBatchUpdateRequest, int sheetId, int startRowIndex, int endRowIndex, int rowFormulaOffset)
+        static void ApplyGoogleSheetFormatting(GoogleSheetsBatchUpdateRequests googleBatchUpdateRequest, int sheetId, int startRowIndex, int endRowIndex, bool doUseSubTotals)
         {
             // calculate row offset for the forumlas
-            int formulaRowIndex = startRowIndex + rowFormulaOffset;
+            int formulaRowIndex = startRowIndex + 1;
+
+            // insert subtotal in last row
+            if (doUseSubTotals)
+            {
+                // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
+                googleBatchUpdateRequest.Add(
+                    GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
+                    string.Format("=SUBTOTAL(109;Q{0}:Q{1})", 3, endRowIndex),
+                    endRowIndex, endRowIndex + 1, "Q", "AY")
+                );
+            }
 
             // insert control formula in column 1
             googleBatchUpdateRequest.Add(
@@ -427,7 +427,7 @@ namespace AccountingRobot
                 {
                     int startRowNumber = existingAccountingItemsToDelete.FirstOrDefault().Key.Field<int>("RowNumber");
                     int endRowNumber = existingAccountingItemsToDelete.Last().Key.Field<int>("RowNumber");
-                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber));
+                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber + 1)); // delete sub totals as well
                     googleBatchDeleteRequest.Execute();
                 }
             }
@@ -452,7 +452,9 @@ namespace AccountingRobot
                 int endRowIndex = startRowNumber + newRowTotalCount;
                 int startColumnIndex = 0;
                 int endColumnIndex = dtToInsert.Columns.Count + 1;
-                InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, 1);
+                InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, true);
+
+                Console.Out.WriteLine("Successfully updated accounting file!");
             }
         }
         #endregion
