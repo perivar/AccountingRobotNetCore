@@ -10,9 +10,6 @@ using AccountingServices;
 using System.Text.RegularExpressions;
 using Google.Apis.Sheets.v4.Data;
 using System.Data.Common;
-using System.Net;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace AccountingRobot
 {
@@ -1206,7 +1203,7 @@ namespace AccountingRobot
             // and map each one to the right meta information
             int countDebitTransactions = paypalQuery.Count();
 
-            decimal USD2NOK = CurrencyConverter("USD", "NOK");
+            decimal USD2NOK = Utils.CurrencyConverter("USD", "NOK");
             foreach (var paypalDebitTransaction in paypalQuery)
             {
                 // define accounting item
@@ -1225,30 +1222,6 @@ namespace AccountingRobot
             }
 
             return accountingList;
-        }
-
-        public static decimal CurrencyConverter(string fromCurrency, string toCurrency)
-        {
-            string query = String.Format("{0}_{1}", WebUtility.UrlEncode(fromCurrency), WebUtility.UrlEncode(toCurrency));
-            string url = String.Format("https://free.currencyconverterapi.com/api/v5/convert?q={0}&compact=ultra", query);
-
-            using (var client = new WebClient())
-            {
-                // make sure we read in utf8
-                client.Encoding = System.Text.Encoding.UTF8;
-
-                string json = client.DownloadString(url);
-
-                // parse json
-                dynamic jsonObject = JsonConvert.DeserializeObject(json);
-                if (jsonObject != null)
-                {
-                    //var value = (decimal)jsonObject["results"][query]["val"]; // if using compact view
-                    var value = (decimal)jsonObject[query]; // if using ultra compact view
-                    return value;
-                }
-            }
-            return 0;
         }
 
         static List<AccountingItem> ProcessBankAccountStatement(IMyConfiguration configuration, SkandiabankenBankStatement skandiabankenBankStatement, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)

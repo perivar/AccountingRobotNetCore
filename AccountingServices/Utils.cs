@@ -1,4 +1,5 @@
 ﻿using CsvHelper;
+using Newtonsoft.Json;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Remote;
@@ -7,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -202,6 +204,30 @@ namespace AccountingServices
                .ToLower();
 
             return encoded;
+        }
+
+        public static decimal CurrencyConverter(string fromCurrency, string toCurrency)
+        {
+            string query = String.Format("{0}_{1}", WebUtility.UrlEncode(fromCurrency), WebUtility.UrlEncode(toCurrency));
+            string url = String.Format("https://free.currencyconverterapi.com/api/v5/convert?q={0}&compact=ultra", query);
+
+            using (var client = new WebClient())
+            {
+                // make sure we read in utf8
+                client.Encoding = System.Text.Encoding.UTF8;
+
+                string json = client.DownloadString(url);
+
+                // parse json
+                dynamic jsonObject = JsonConvert.DeserializeObject(json);
+                if (jsonObject != null)
+                {
+                    //var value = (decimal)jsonObject["results"][query]["val"]; // if using compact view
+                    var value = (decimal)jsonObject[query]; // if using ultra compact view
+                    return value;
+                }
+            }
+            return 0;
         }
     }
 
