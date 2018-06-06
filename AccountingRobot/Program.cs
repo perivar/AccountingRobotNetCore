@@ -10,6 +10,9 @@ using AccountingServices;
 using System.Text.RegularExpressions;
 using Google.Apis.Sheets.v4.Data;
 using System.Data.Common;
+using System.Net;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace AccountingRobot
 {
@@ -1177,6 +1180,7 @@ namespace AccountingRobot
             var accountingList = new List<AccountingItem>();
 
             // lookup the paypal debit transactions
+            /*
             var paypalQuery =
             from transaction in paypalTransactions
             let grossAmount = transaction.GrossAmount
@@ -1184,12 +1188,25 @@ namespace AccountingRobot
             where
             transaction.Status.Equals("Completed")
             && transaction.Type.Equals("Currency Conversion (debit)")
-            //&& (null != transaction.Payer && transaction.Payer.Equals("master@aiminyz.com", StringComparison.InvariantCultureIgnoreCase))
+            orderby timestamp ascending
+            select transaction;
+            */
+
+            var paypalQuery =
+            from transaction in paypalTransactions
+            let grossAmount = transaction.GrossAmount
+            let timestamp = transaction.Timestamp
+            where
+            transaction.Status.Equals("Completed")
+            && transaction.Type.Equals("Payment")
+            && grossAmount < 0
             orderby timestamp ascending
             select transaction;
 
             // and map each one to the right meta information
             int countDebitTransactions = paypalQuery.Count();
+
+            decimal USD2NOK = CurrencyConverter("USD", "NOK");
             foreach (var paypalDebitTransaction in paypalQuery)
             {
                 // define accounting item
@@ -1198,16 +1215,40 @@ namespace AccountingRobot
                 accountingItem.ArchiveReference = paypalDebitTransaction.TransactionID;
                 accountingItem.Type = paypalDebitTransaction.Status;
                 accountingItem.AccountingType = "KOST VARE";
-                accountingItem.Text = string.Format("{0:dd.MM.yyyy} PAYPAL {1} - {2}", paypalDebitTransaction.Timestamp, paypalDebitTransaction.Type, paypalDebitTransaction.PayerDisplayName);
+                accountingItem.Text = string.Format("{0:dd.MM.yyyy} PAYPAL {1} - {2}", paypalDebitTransaction.Timestamp, paypalDebitTransaction.Type, paypalDebitTransaction.Payer);
                 accountingItem.Gateway = "paypal";
                 accountingItem.PurchaseOtherCurrency = paypalDebitTransaction.GrossAmount;
                 accountingItem.OtherCurrency = paypalDebitTransaction.GrossAmountCurrencyId;
-                accountingItem.AccountPaypal = paypalDebitTransaction.GrossAmount;
-                accountingItem.CostForReselling = -paypalDebitTransaction.GrossAmount;
+                accountingItem.AccountPaypal = paypalDebitTransaction.GrossAmount * USD2NOK;
+                accountingItem.CostForReselling = -accountingItem.AccountPaypal;
                 accountingList.Add(accountingItem);
             }
 
             return accountingList;
+        }
+
+        public static decimal CurrencyConverter(string fromCurrency, string toCurrency)
+        {
+            string query = String.Format("{0}_{1}", WebUtility.UrlEncode(fromCurrency), WebUtility.UrlEncode(toCurrency));
+            string url = String.Format("https://free.currencyconverterapi.com/api/v5/convert?q={0}&compact=ultra", query);
+
+            using (var client = new WebClient())
+            {
+                // make sure we read in utf8
+                client.Encoding = System.Text.Encoding.UTF8;
+
+                string json = client.DownloadString(url);
+
+                // parse json
+                dynamic jsonObject = JsonConvert.DeserializeObject(json);
+                if (jsonObject != null)
+                {
+                    //var value = (decimal)jsonObject["results"][query]["val"]; // if using compact view
+                    var value = (decimal)jsonObject[query]; // if using ultra compact view
+                    return value;
+                }
+            }
+            return 0;
         }
 
         static List<AccountingItem> ProcessBankAccountStatement(IMyConfiguration configuration, SkandiabankenBankStatement skandiabankenBankStatement, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)
