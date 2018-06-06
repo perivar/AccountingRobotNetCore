@@ -378,7 +378,7 @@ namespace AccountingRobot
                 accountingItem.AccountingType = GoogleSheetsUtils.GetField<string>(row, "Regnskapstype");
                 accountingItem.Text = GoogleSheetsUtils.GetField<string>(row, "Tekst");
                 accountingItem.CustomerName = GoogleSheetsUtils.GetField<string>(row, "Kundenavn");
-                accountingItem.ErrorMessage = GoogleSheetsUtils.GetField<string>(row, "Melding");
+                accountingItem.Message = GoogleSheetsUtils.GetField<string>(row, "Melding");
                 accountingItem.Gateway = GoogleSheetsUtils.GetField<string>(row, "Gateway");
                 accountingItem.NumSale = GoogleSheetsUtils.GetField<string>(row, "Num Salg");
                 accountingItem.NumPurchase = GoogleSheetsUtils.GetField<string>(row, "Num Kjøp");
@@ -598,7 +598,7 @@ namespace AccountingRobot
                     accountingItem.AccountingType = ExcelUtils.GetField<string>(row, "Regnskapstype");
                     accountingItem.Text = ExcelUtils.GetField<string>(row, "Tekst");
                     accountingItem.CustomerName = ExcelUtils.GetField<string>(row, "Kundenavn");
-                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Melding");
+                    accountingItem.Message = ExcelUtils.GetField<string>(row, "Melding");
                     accountingItem.Gateway = ExcelUtils.GetField<string>(row, "Gateway");
                     accountingItem.NumSale = ExcelUtils.GetField<string>(row, "Num Salg");
                     accountingItem.NumPurchase = ExcelUtils.GetField<string>(row, "Num Kjøp");
@@ -701,7 +701,7 @@ namespace AccountingRobot
                         newRow.Cell(8).Value = newAccountingElements[newRowCounter].AccountingType;
                         newRow.Cell(9).Value = newAccountingElements[newRowCounter].Text;
                         newRow.Cell(10).Value = newAccountingElements[newRowCounter].CustomerName;
-                        newRow.Cell(11).Value = newAccountingElements[newRowCounter].ErrorMessage;
+                        newRow.Cell(11).Value = newAccountingElements[newRowCounter].Message;
                         newRow.Cell(12).Value = newAccountingElements[newRowCounter].Gateway;
                         newRow.Cell(13).Value = newAccountingElements[newRowCounter].NumSale;
                         newRow.Cell(14).Value = newAccountingElements[newRowCounter].NumPurchase;
@@ -799,7 +799,7 @@ namespace AccountingRobot
                     accountingItem.AccountingType = ExcelUtils.GetField<string>(row, "Regnskapstype");
                     accountingItem.Text = ExcelUtils.GetField<string>(row, "Tekst");
                     accountingItem.CustomerName = ExcelUtils.GetField<string>(row, "Kundenavn");
-                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Melding");
+                    accountingItem.Message = ExcelUtils.GetField<string>(row, "Melding");
                     accountingItem.Gateway = ExcelUtils.GetField<string>(row, "Gateway");
                     accountingItem.NumSale = ExcelUtils.GetField<string>(row, "Num Salg");
                     accountingItem.NumPurchase = ExcelUtils.GetField<string>(row, "Num Kjøp");
@@ -891,7 +891,7 @@ namespace AccountingRobot
                         {
                             var matchingAccountingElement = result.First();
                             updateRow.Key.Cell(6).Value = matchingAccountingElement.TransactionID;
-                            updateRow.Key.Cell(11).Value = matchingAccountingElement.ErrorMessage;
+                            updateRow.Key.Cell(11).Value = matchingAccountingElement.Message;
                         }
                     }
                     else
@@ -1115,7 +1115,7 @@ namespace AccountingRobot
                     accountingItem.AccountingType,
                     accountingItem.Text,
                     accountingItem.CustomerName,
-                    accountingItem.ErrorMessage,
+                    accountingItem.Message,
                     accountingItem.Gateway,
                     accountingItem.NumSale,
                     accountingItem.NumPurchase,
@@ -1176,19 +1176,6 @@ namespace AccountingRobot
         {
             var accountingList = new List<AccountingItem>();
 
-            // lookup the paypal debit transactions
-            /*
-            var paypalQuery =
-            from transaction in paypalTransactions
-            let grossAmount = transaction.GrossAmount
-            let timestamp = transaction.Timestamp
-            where
-            transaction.Status.Equals("Completed")
-            && transaction.Type.Equals("Currency Conversion (debit)")
-            orderby timestamp ascending
-            select transaction;
-            */
-
             var paypalQuery =
             from transaction in paypalTransactions
             let grossAmount = transaction.GrossAmount
@@ -1200,7 +1187,6 @@ namespace AccountingRobot
             orderby timestamp ascending
             select transaction;
 
-            // and map each one to the right meta information
             int countDebitTransactions = paypalQuery.Count();
 
             decimal USD2NOK = Utils.CurrencyConverter("USD", "NOK");
@@ -1212,12 +1198,38 @@ namespace AccountingRobot
                 accountingItem.ArchiveReference = paypalDebitTransaction.TransactionID;
                 accountingItem.Type = paypalDebitTransaction.Status;
                 accountingItem.AccountingType = "KOST VARE";
-                accountingItem.Text = string.Format("{0:dd.MM.yyyy} PAYPAL {1} - {2}", paypalDebitTransaction.Timestamp, paypalDebitTransaction.Type, paypalDebitTransaction.Payer);
+                accountingItem.Text = string.Format("{0:dd.MM.yyyy} PAYPAL {1} ({2})", paypalDebitTransaction.Timestamp, paypalDebitTransaction.Type.ToUpper(), paypalDebitTransaction.Payer);
                 accountingItem.Gateway = "paypal";
                 accountingItem.PurchaseOtherCurrency = paypalDebitTransaction.GrossAmount;
                 accountingItem.OtherCurrency = paypalDebitTransaction.GrossAmountCurrencyId;
-                accountingItem.AccountPaypal = paypalDebitTransaction.GrossAmount * USD2NOK;
+
+                // lookup the paypal debit transactions
+                var paypalDebitQuery =
+                from transaction in paypalTransactions
+                let grossAmount = transaction.GrossAmount
+                let timestamp = transaction.Timestamp
+                where
+                transaction.Timestamp.Equals(paypalDebitTransaction.Timestamp)
+                && transaction.Status.Equals("Completed")
+                && transaction.Type.Equals("Currency Conversion (debit)")
+                orderby timestamp ascending
+                select transaction;
+
+                int countPaypalDebitQuery = paypalDebitQuery.Count();
+                if (countPaypalDebitQuery > 0)
+                {
+                    // use the found debit entry
+                    var paypalDebit = paypalDebitQuery.FirstOrDefault();
+                    accountingItem.AccountPaypal = paypalDebit.GrossAmount;
+                }
+                else
+                {
+                    // use conversion rate
+                    accountingItem.AccountPaypal = paypalDebitTransaction.GrossAmount * USD2NOK;
+                    accountingItem.Message = string.Format("Using conversion rate: {0:C}", USD2NOK);
+                }
                 accountingItem.CostForReselling = -accountingItem.AccountPaypal;
+
                 accountingList.Add(accountingItem);
             }
 
@@ -1358,7 +1370,7 @@ namespace AccountingRobot
                     {
                         // more than one transaction found ?!
                         Console.Out.WriteLine("ERROR: FOUND MORE THAN ONE PAYPAL PAYOUT!");
-                        accountingItem.ErrorMessage = "Paypal: More than one payout found, choose one";
+                        accountingItem.Message = "Paypal: More than one payout found, choose one";
                     }
                     else if (paypalQuery.Count() > 0)
                     {
@@ -1371,7 +1383,7 @@ namespace AccountingRobot
                     else
                     {
                         Console.Out.WriteLine("ERROR: NO PAYPAL PAYOUTS FOR {0:C} FOUND BETWEEN {1:dd.MM.yyyy} and {2:dd.MM.yyyy}!", skandiabankenTransaction.AccountChange, startDate, endDate);
-                        accountingItem.ErrorMessage = "Paypal: No payouts found";
+                        accountingItem.Message = "Paypal: No payouts found";
                     }
                 }
 
@@ -1419,7 +1431,7 @@ namespace AccountingRobot
                         if (notFound)
                         {
                             Console.Out.WriteLine("ERROR: COULD NOT FIND MATCHING STRIPE PAYOUT!");
-                            accountingItem.ErrorMessage = "Stripe: Could not find matching payout";
+                            accountingItem.Message = "Stripe: Could not find matching payout";
                         }
                     }
                     else if (stripeQuery.Count() > 0)
@@ -1433,7 +1445,7 @@ namespace AccountingRobot
                     else
                     {
                         Console.Out.WriteLine("ERROR: NO STRIPE PAYOUT FOR {0:C} FOUND BETWEEN {1:dd.MM.yyyy} and {2:dd.MM.yyyy}!", skandiabankenTransaction.AccountChange, startDate, endDate);
-                        accountingItem.ErrorMessage = "Stripe: No payouts found";
+                        accountingItem.Message = "Stripe: No payouts found";
                     }
                 }
 
@@ -1494,7 +1506,7 @@ namespace AccountingRobot
                             break;
                         case SBankenTransaction.AccountingTypeEnum.CostOfVAT:
                             accountingItem.VATSettlementAccount = -skandiabankenTransaction.AccountChange;
-                            accountingItem.ErrorMessage = "Please add VAT payment period";
+                            accountingItem.Message = "Please add VAT payment period";
                             break;
                     }
                 }
@@ -1587,7 +1599,7 @@ namespace AccountingRobot
                         {
                             // more than one ?!
                             Console.Out.WriteLine("ERROR: FOUND MORE THAN ONE MATCHING STRIPE TRANSACTION!");
-                            accountingItem.ErrorMessage = "Stripe: More than one found, choose one";
+                            accountingItem.Message = "Stripe: More than one found, choose one";
                         }
                         else if (stripeQuery.Count() > 0)
                         {
@@ -1606,7 +1618,7 @@ namespace AccountingRobot
                         else
                         {
                             Console.Out.WriteLine("ERROR: NO STRIPE TRANSACTIONS FOR {0:C} FOUND FOR {1} {2} BETWEEN {3:dd.MM.yyyy} and {4:dd.MM.yyyy}!", shopifyOrder.TotalPrice, shopifyOrder.Name, shopifyOrder.CustomerName, startDate, endDate);
-                            accountingItem.ErrorMessage = "Stripe: No transactions found";
+                            accountingItem.Message = "Stripe: No transactions found";
                         }
 
                         break;
@@ -1638,7 +1650,7 @@ namespace AccountingRobot
                         {
                             // more than one ?!
                             Console.Out.WriteLine("ERROR: FOUND MORE THAN ONE PAYPAL TRANSACTION!");
-                            accountingItem.ErrorMessage = "Paypal: More than one found, choose one";
+                            accountingItem.Message = "Paypal: More than one found, choose one";
                         }
                         else if (paypalQuery.Count() > 0)
                         {
@@ -1657,7 +1669,7 @@ namespace AccountingRobot
                         else
                         {
                             Console.Out.WriteLine("ERROR: NO PAYPAL TRANSACTIONS FOR {0:C} FOUND FOR {1} {2} BETWEEN {3:dd.MM.yyyy} and {4:dd.MM.yyyy}!", shopifyOrder.TotalPrice, shopifyOrder.Name, shopifyOrder.CustomerName, startDate, endDate);
-                            accountingItem.ErrorMessage = "Paypal: No transactions found";
+                            accountingItem.Message = "Paypal: No transactions found";
                         }
 
                         break;
@@ -1737,7 +1749,7 @@ namespace AccountingRobot
             {
                 // could not find shopify order numbers
                 Console.WriteLine("\tERROR: NO SHOPIFY ORDERS FOUND!");
-                accountingItem.ErrorMessage = "Shopify: No orders found";
+                accountingItem.Message = "Shopify: No orders found";
                 accountingItem.NumPurchase = "NOT FOUND";
             }
         }
@@ -1778,7 +1790,7 @@ namespace AccountingRobot
                 Console.WriteLine("\tERROR: NO OBERLO ORDERS FOUND!");
                 var orderIds = string.Join(", ", Array.ConvertAll(aliExpressOrderList.ToArray(), i => i.OrderId));
                 var orderCustomers = string.Join(", ", Array.ConvertAll(aliExpressOrderList.ToArray(), i => i.ContactName));
-                accountingItem.ErrorMessage = string.Format("Oberlo: No shopify order found for order {0} ({1})", orderIds, orderCustomers);
+                accountingItem.Message = string.Format("Oberlo: No shopify order found for order {0} ({1})", orderIds, orderCustomers);
                 accountingItem.NumPurchase = "NOT FOUND";
             }
         }

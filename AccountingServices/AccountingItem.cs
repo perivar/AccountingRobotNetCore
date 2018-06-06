@@ -15,7 +15,7 @@ namespace AccountingServices
         public string AccountingType { get; set; }
         public string Text { get; set; }
         public string CustomerName { get; set; }
-        public string ErrorMessage { get; set; }
+        public string Message { get; set; }
 
         public string Gateway { get; set; }
 
@@ -133,7 +133,7 @@ namespace AccountingServices
             Map(m => m.AccountingType);
             Map(m => m.Text);
             Map(m => m.CustomerName);
-            Map(m => m.ErrorMessage);
+            Map(m => m.Message);
 
             Map(m => m.Gateway);
             Map(m => m.NumSale);
