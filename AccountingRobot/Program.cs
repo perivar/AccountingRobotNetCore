@@ -16,6 +16,7 @@ namespace AccountingRobot
     partial class Program
     {
         const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL";
+        const bool PROCESS_ALIEXPRESS = false;
 
         static void Main(string[] args)
         {
@@ -29,10 +30,10 @@ namespace AccountingRobot
             // prepopulate lookup lists
             Console.Out.WriteLine("Prepopulating Lookup Lists ...");
 
-            var stripeTransactions = StripeChargeFactory.Instance.GetLatest(configuration, false);
+            var stripeTransactions = StripeChargeFactory.Instance.GetLatest(configuration, true);
             Console.Out.WriteLine("Successfully read Stripe transactions ...");
 
-            var paypalTransactions = PayPalFactory.Instance.GetLatest(configuration, false);
+            var paypalTransactions = PayPalFactory.Instance.GetLatest(configuration, true);
             Console.Out.WriteLine("Successfully read PayPal transactions ...");
 
             // process the transactions and create accounting overview
@@ -54,8 +55,11 @@ namespace AccountingRobot
             }
             var accountingBankItems = ProcessBankAccountStatement(configuration, sBankenBankStatement, customerNames, stripeTransactions, paypalTransactions);
 
+            var accountingPayPalPaymentItems = ProcessPayPalPayments(configuration, paypalTransactions);
+
             // merge into one list
             accountingShopifyItems.AddRange(accountingBankItems);
+            accountingShopifyItems.AddRange(accountingPayPalPaymentItems);
 
             // and sort (by ascending)
             var accountingItems = accountingShopifyItems.OrderBy(o => o.Date).ToList();
@@ -119,8 +123,6 @@ namespace AccountingRobot
                     }
                 }
             }
-
-            Console.ReadLine();
         }
 
         #region Google Sheets Methods
@@ -376,12 +378,12 @@ namespace AccountingRobot
                 accountingItem.AccountingType = GoogleSheetsUtils.GetField<string>(row, "Regnskapstype");
                 accountingItem.Text = GoogleSheetsUtils.GetField<string>(row, "Tekst");
                 accountingItem.CustomerName = GoogleSheetsUtils.GetField<string>(row, "Kundenavn");
-                accountingItem.ErrorMessage = GoogleSheetsUtils.GetField<string>(row, "Feilmelding");
+                accountingItem.ErrorMessage = GoogleSheetsUtils.GetField<string>(row, "Melding");
                 accountingItem.Gateway = GoogleSheetsUtils.GetField<string>(row, "Gateway");
                 accountingItem.NumSale = GoogleSheetsUtils.GetField<string>(row, "Num Salg");
                 accountingItem.NumPurchase = GoogleSheetsUtils.GetField<string>(row, "Num Kjøp");
-                accountingItem.PurchaseOtherCurrency = GoogleSheetsUtils.GetField<decimal>(row, "Kjøp annen valuta");
-                accountingItem.OtherCurrency = GoogleSheetsUtils.GetField<string>(row, "Annen valuta");
+                accountingItem.PurchaseOtherCurrency = GoogleSheetsUtils.GetField<decimal>(row, "Annen valuta");
+                accountingItem.OtherCurrency = GoogleSheetsUtils.GetField<string>(row, "Valuta Id");
 
                 accountingItem.AccountPaypal = GoogleSheetsUtils.GetField<decimal>(row, "Paypal");    // 1910
                 accountingItem.AccountStripe = GoogleSheetsUtils.GetField<decimal>(row, "Stripe");    // 1915
@@ -596,12 +598,12 @@ namespace AccountingRobot
                     accountingItem.AccountingType = ExcelUtils.GetField<string>(row, "Regnskapstype");
                     accountingItem.Text = ExcelUtils.GetField<string>(row, "Tekst");
                     accountingItem.CustomerName = ExcelUtils.GetField<string>(row, "Kundenavn");
-                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Feilmelding");
+                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Melding");
                     accountingItem.Gateway = ExcelUtils.GetField<string>(row, "Gateway");
                     accountingItem.NumSale = ExcelUtils.GetField<string>(row, "Num Salg");
                     accountingItem.NumPurchase = ExcelUtils.GetField<string>(row, "Num Kjøp");
-                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetField<decimal>(row, "Kjøp annen valuta");
-                    accountingItem.OtherCurrency = ExcelUtils.GetField<string>(row, "Annen valuta");
+                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetField<decimal>(row, "Annen valuta");
+                    accountingItem.OtherCurrency = ExcelUtils.GetField<string>(row, "Valuta Id");
 
                     accountingItem.AccountPaypal = ExcelUtils.GetField<decimal>(row, "Paypal");	// 1910
                     accountingItem.AccountStripe = ExcelUtils.GetField<decimal>(row, "Stripe");	// 1915
@@ -797,12 +799,12 @@ namespace AccountingRobot
                     accountingItem.AccountingType = ExcelUtils.GetField<string>(row, "Regnskapstype");
                     accountingItem.Text = ExcelUtils.GetField<string>(row, "Tekst");
                     accountingItem.CustomerName = ExcelUtils.GetField<string>(row, "Kundenavn");
-                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Feilmelding");
+                    accountingItem.ErrorMessage = ExcelUtils.GetField<string>(row, "Melding");
                     accountingItem.Gateway = ExcelUtils.GetField<string>(row, "Gateway");
                     accountingItem.NumSale = ExcelUtils.GetField<string>(row, "Num Salg");
                     accountingItem.NumPurchase = ExcelUtils.GetField<string>(row, "Num Kjøp");
-                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetField<decimal>(row, "Kjøp annen valuta");
-                    accountingItem.OtherCurrency = ExcelUtils.GetField<string>(row, "Annen valuta");
+                    accountingItem.PurchaseOtherCurrency = ExcelUtils.GetField<decimal>(row, "Annen valuta");
+                    accountingItem.OtherCurrency = ExcelUtils.GetField<string>(row, "Valuta Id");
 
                     accountingItem.AccountPaypal = ExcelUtils.GetField<decimal>(row, "Paypal");	// 1910
                     accountingItem.AccountStripe = ExcelUtils.GetField<decimal>(row, "Stripe");	// 1915
@@ -1045,12 +1047,12 @@ namespace AccountingRobot
             dt.Columns.Add("Regnskapstype", typeof(string));
             dt.Columns.Add("Tekst", typeof(string));
             dt.Columns.Add("Kundenavn", typeof(string));
-            dt.Columns.Add("Feilmelding", typeof(string));
+            dt.Columns.Add("Melding", typeof(string));
             dt.Columns.Add("Gateway", typeof(string));
             dt.Columns.Add("Num Salg", typeof(string));
             dt.Columns.Add("Num Kjøp", typeof(string));
-            dt.Columns.Add("Kjøp annen valuta", typeof(decimal));
-            dt.Columns.Add("Annen valuta", typeof(string));
+            dt.Columns.Add("Annen valuta", typeof(decimal));
+            dt.Columns.Add("Valuta Id", typeof(string));
 
             dt.Columns.Add("Paypal", typeof(decimal));                          // 1910
             dt.Columns.Add("Stripe", typeof(decimal));                          // 1912
@@ -1170,10 +1172,46 @@ namespace AccountingRobot
         }
         #endregion
 
+        static List<AccountingItem> ProcessPayPalPayments(IMyConfiguration configuration, List<PayPalTransaction> paypalTransactions)
+        {
+            var accountingList = new List<AccountingItem>();
+
+            // lookup the paypal debit transactions
+            var paypalQuery =
+            from transaction in paypalTransactions
+            let grossAmount = transaction.GrossAmount
+            let timestamp = transaction.Timestamp
+            where
+            transaction.Status.Equals("Completed")
+            && transaction.Type.Equals("Currency Conversion (debit)")
+            //&& (null != transaction.Payer && transaction.Payer.Equals("master@aiminyz.com", StringComparison.InvariantCultureIgnoreCase))
+            orderby timestamp ascending
+            select transaction;
+
+            // and map each one to the right meta information
+            int countDebitTransactions = paypalQuery.Count();
+            foreach (var paypalDebitTransaction in paypalQuery)
+            {
+                // define accounting item
+                var accountingItem = new AccountingItem();
+                accountingItem.Date = paypalDebitTransaction.Timestamp;
+                accountingItem.ArchiveReference = paypalDebitTransaction.TransactionID;
+                accountingItem.Type = paypalDebitTransaction.Status;
+                accountingItem.AccountingType = "KOST VARE";
+                accountingItem.Text = string.Format("{0:dd.MM.yyyy} PAYPAL {1} - {2}", paypalDebitTransaction.Timestamp, paypalDebitTransaction.Type, paypalDebitTransaction.PayerDisplayName);
+                accountingItem.Gateway = "paypal";
+                accountingItem.PurchaseOtherCurrency = paypalDebitTransaction.GrossAmount;
+                accountingItem.OtherCurrency = paypalDebitTransaction.GrossAmountCurrencyId;
+                accountingItem.AccountPaypal = paypalDebitTransaction.GrossAmount;
+                accountingItem.CostForReselling = -paypalDebitTransaction.GrossAmount;
+                accountingList.Add(accountingItem);
+            }
+
+            return accountingList;
+        }
+
         static List<AccountingItem> ProcessBankAccountStatement(IMyConfiguration configuration, SkandiabankenBankStatement skandiabankenBankStatement, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)
         {
-            bool PROCESS_ALIEXPRESS = false;
-
             var accountingList = new List<AccountingItem>();
 
             if (skandiabankenBankStatement == null) return accountingList;
@@ -1183,7 +1221,7 @@ namespace AccountingRobot
             var to = date.CurrentDate;
 
             // prepopulate some lookup lists
-            var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, false);
+            var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, true);
             Console.Out.WriteLine("Successfully read Stripe payout transactions ...");
 
             // check if we are processing aliexpress
@@ -1221,7 +1259,7 @@ namespace AccountingRobot
 
                 accountingItem.ArchiveReference = skandiabankenTransaction.ArchiveReference;
 
-                if (accountingItem.ArchiveReference.Equals("fddfd41eb41537643cf826b34398d632"))
+                if (accountingItem.ArchiveReference.Equals("'424439939107"))
                 {
                     // breakpoint here
                 }
