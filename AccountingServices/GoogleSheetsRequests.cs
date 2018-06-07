@@ -189,9 +189,9 @@ namespace AccountingServices
             return request;
         }
 
-        public static Request GetAppendCellsRequest(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader)
+        public static Request GetAppendCellsRequest(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
         {
-            var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, columns, fgColorHeader, bgColorHeader);
+            var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, columns, fgColorHeader, bgColorHeader, doFullFormatting);
             var request = new Request() { AppendCells = appendCellsRequestHeader };
             return request;
         }
@@ -210,7 +210,7 @@ namespace AccountingServices
                 // append headers
                 if (doUseTableHeaders)
                 {
-                    var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, dt.Columns, fgColorHeader, bgColorHeader);
+                    var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, dt.Columns, fgColorHeader, bgColorHeader, true);
                     requests.Add(new Request() { AppendCells = appendCellsRequestHeader });
                 }
 
@@ -219,7 +219,7 @@ namespace AccountingServices
                 {
                     // initialize empty string array
                     var emptyRow = Enumerable.Repeat<string>(string.Empty, dt.Columns.Count).ToArray();
-                    var appendCellsRequestSubTotals = CreateAppendCellRequest(sheetId, emptyRow, fgColorHeader, bgColorHeader);
+                    var appendCellsRequestSubTotals = CreateAppendCellRequest(sheetId, emptyRow, fgColorHeader, bgColorHeader, true);
                     requests.Add(new Request() { AppendCells = appendCellsRequestSubTotals });
                 }
 
@@ -249,7 +249,7 @@ namespace AccountingServices
                 if (doUseTableHeaders)
                 {
                     rowCounter++;
-                    var updateCellsRequestHeader = CreateUpdateCellsRequest(sheetId, startRowIndex, startColumnIndex, dt.Columns, fgColorHeader, bgColorHeader);
+                    var updateCellsRequestHeader = CreateUpdateCellsRequest(sheetId, startRowIndex, startColumnIndex, dt.Columns, fgColorHeader, bgColorHeader, true);
                     requests.Add(new Request() { UpdateCells = updateCellsRequestHeader });
                 }
 
@@ -546,9 +546,9 @@ namespace AccountingServices
         }
 
         #region Append Cell Request and Data Table Request
-        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader)
+        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
         {
-            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader);
+            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader, doFullFormatting);
 
             var rowDataList = new List<RowData>();
             rowDataList.Add(rowData);
@@ -560,9 +560,9 @@ namespace AccountingServices
             return appendRequest;
         }
 
-        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
+        private static AppendCellsRequest CreateAppendCellRequest(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
         {
-            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader);
+            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader, doFullFormatting);
 
             var rowDataList = new List<RowData>();
             rowDataList.Add(rowData);
@@ -590,9 +590,35 @@ namespace AccountingServices
             return appendRequest;
         }
 
-        private static UpdateCellsRequest CreateUpdateCellsRequest(int sheetId, int startRowIndex, int startColumnIndex, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
+        public static Request GetUpdateCellsRequest(int sheetId, int startRowIndex, int startColumnIndex, string[] columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
         {
-            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader);
+            var updateCellsRequestHeader = CreateUpdateCellsRequest(sheetId, startRowIndex, startColumnIndex, columns, fgColorHeader, bgColorHeader, doFullFormatting);
+            var request = new Request() { UpdateCells = updateCellsRequestHeader };
+            return request;
+        }
+
+        private static UpdateCellsRequest CreateUpdateCellsRequest(int sheetId, int startRowIndex, int startColumnIndex, string[] columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
+        {
+            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader, doFullFormatting);
+
+            var rowDataList = new List<RowData>();
+            rowDataList.Add(rowData);
+
+            var updateRequest = new UpdateCellsRequest();
+            updateRequest.Start = new GridCoordinate()
+            {
+                SheetId = sheetId,
+                ColumnIndex = startColumnIndex,
+                RowIndex = startRowIndex,
+            };
+            updateRequest.Rows = rowDataList;
+            updateRequest.Fields = "UserEnteredValue,UserEnteredFormat";
+            return updateRequest;
+        }
+
+        private static UpdateCellsRequest CreateUpdateCellsRequest(int sheetId, int startRowIndex, int startColumnIndex, DataColumnCollection columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
+        {
+            var rowData = CreateRowData(sheetId, columns, fgColorHeader, bgColorHeader, doFullFormatting);
 
             var rowDataList = new List<RowData>();
             rowDataList.Add(rowData);
@@ -753,46 +779,61 @@ namespace AccountingServices
             return rowData;
         }
 
-        private static RowData CreateRowData(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader)
+        private static RowData CreateRowData(int sheetId, DataColumnCollection columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
         {
             string[] columnNames = columns.Cast<DataColumn>()
                                              .Select(x => x.ColumnName)
                                              .ToArray();
 
-            return CreateRowData(sheetId, columnNames, fgColorHeader, bgColorHeader);
+            return CreateRowData(sheetId, columnNames, fgColorHeader, bgColorHeader, doFullFormatting);
 
         }
 
-        private static RowData CreateRowData(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader)
+        private static RowData CreateRowData(int sheetId, string[] columns, int fgColorHeader, int bgColorHeader, bool doFullFormatting)
         {
             // https://github.com/opendatakit/aggregate/blob/master/src/main/java/org/opendatakit/aggregate/externalservice/GoogleSpreadsheet.java
 
             // define header cell format
             CellFormat headerFormat = null;
-            headerFormat = new CellFormat()
+
+            if (doFullFormatting)
             {
-                BackgroundColor = GetColor(bgColorHeader),
-                HorizontalAlignment = "CENTER",
-                TextFormat = new TextFormat()
+                headerFormat = new CellFormat()
                 {
-                    ForegroundColor = GetColor(fgColorHeader),
-                    FontSize = 11,
-                    Bold = true
-                },
-                Borders = new Borders()
-                {
-                    Bottom = new Border()
+                    BackgroundColor = GetColor(bgColorHeader),
+                    HorizontalAlignment = "CENTER",
+                    TextFormat = new TextFormat()
                     {
-                        Style = "DASHED",
-                        Width = 2
+                        ForegroundColor = GetColor(fgColorHeader),
+                        FontSize = 11,
+                        Bold = true
                     },
-                    Top = new Border()
+                    Borders = new Borders()
                     {
-                        Style = "DASHED",
-                        Width = 2
+                        Bottom = new Border()
+                        {
+                            Style = "DASHED",
+                            Width = 2
+                        },
+                        Top = new Border()
+                        {
+                            Style = "DASHED",
+                            Width = 2
+                        }
                     }
-                }
-            };
+                };
+            }
+            else
+            {
+                headerFormat = new CellFormat()
+                {
+                    BackgroundColor = GetColor(bgColorHeader),
+                    TextFormat = new TextFormat()
+                    {
+                        ForegroundColor = GetColor(fgColorHeader),
+                    },
+                };
+            }
 
             var cellDataList = new List<CellData>();
             foreach (var item in columns)

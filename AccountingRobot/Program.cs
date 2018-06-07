@@ -15,7 +15,7 @@ namespace AccountingRobot
 {
     partial class Program
     {
-        const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL2";
+        const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL";
         const bool PROCESS_ALIEXPRESS = false;
         const bool FORCE_UPDATE_YEAR = true;
 
@@ -202,7 +202,7 @@ namespace AccountingRobot
                     formatEndRowIndex++;
 
                     var accountingHeaders = GetAccountingHeaders();
-                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
+                    googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000, true));
                 }
 
                 if (doUseTableHeaders)
@@ -483,6 +483,22 @@ namespace AccountingRobot
             {
                 using (var googleBatchDeleteRequest = new GoogleSheetsBatchUpdateRequests())
                 {
+                    /*
+                    // dt.Columns.Count contains an additional column for RowNumber
+                    var emptyRow = Enumerable.Repeat<string>(string.Empty, dt.Columns.Count - 1).ToArray();
+
+                    // clear rows - not delete them
+                    foreach (var rowToDelete in existingAccountingItemsToDelete)
+                    {
+                        int rowNumber = rowToDelete.Key.Field<int>("RowNumber");
+                        int startRowIndex = rowNumber - 1;
+                        int startColumnIndex = 0;
+                        int fgColorHeader = 0x000000;
+                        int bgColorHeader = 0xdbe5f1;
+                        googleBatchClearRequest.Add(GoogleSheetsRequests.GetUpdateCellsRequest(sheetId, startRowIndex, startColumnIndex, emptyRow, fgColorHeader, bgColorHeader));
+                    }
+                    */
+
                     int startRowNumber = existingAccountingItemsToDelete.FirstOrDefault().Key.Field<int>("RowNumber");
                     int endRowNumber = existingAccountingItemsToDelete.Last().Key.Field<int>("RowNumber");
                     int deleteRowStartIndex = startRowNumber;
