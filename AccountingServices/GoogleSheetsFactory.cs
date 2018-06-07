@@ -106,7 +106,7 @@ namespace AccountingServices
             Console.WriteLine("UpdateRow:\n" + JsonConvert.SerializeObject(updateResponse));
         }
 
-        public DataTable ReadDataTable(string sheetName, int startRowNumber, int endRowNumber = 10000)
+        public DataTable ReadDataTable(string sheetName, int startRowNumber, int endRowNumber, bool doUseSubTotalsAtTop)
         {
             List<string> ranges = new List<string>();
             var fullRange = $"{sheetName}!{startRowNumber}:{endRowNumber}";
@@ -135,12 +135,23 @@ namespace AccountingServices
             }
 
             DataTable dt = new DataTable();
-            for (int i = 0; i < rowData.Count - 1; i++) // include all rows except the subtotal at the bottom
-            {
-                if (i == 0) continue; // ship header, already been processed
+            int startRowIndex = 1;
+            int endRowCount = rowData.Count;
 
+            if (doUseSubTotalsAtTop)
+            {
+                startRowIndex++;
+            }
+            else
+            {
+                endRowCount--; // include all rows except the subtotal at the bottom
+            }
+
+            for (int i = startRowIndex; i < endRowCount; i++)
+            {
                 var rowValues = rowData[i].Values;
-                if (i == 1) // first data row
+
+                if (i == startRowIndex) // first data row
                 {
                     // read the first line of data and get data types
                     var dataTypeAndValueList = new List<KeyValuePair<Type, object>>();

@@ -143,7 +143,7 @@ namespace AccountingServices
             return hideColumnsRequest;
         }
 
-        public static Request FreezeRowsRequest(int sheetId)
+        public static Request FreezeRowsRequest(int sheetId, int freezeRowCount)
         {
             Request freezeRowsRequest = new Request()
             {
@@ -154,7 +154,7 @@ namespace AccountingServices
                         SheetId = sheetId,
                         GridProperties = new GridProperties()
                         {
-                            FrozenRowCount = 2
+                            FrozenRowCount = freezeRowCount
                         }
                     },
                     Fields = "gridProperties.frozenRowCount"
@@ -196,12 +196,12 @@ namespace AccountingServices
             return request;
         }
 
-        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, bool doUseTableHeaders)
+        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, bool doUseTableHeaders, bool doUseSubTotalsAtTop)
         {
-            return GetAppendDataTableRequests(sheetId, dt, -1, -1, -1, -1, doUseTableHeaders);
+            return GetAppendDataTableRequests(sheetId, dt, -1, -1, -1, -1, doUseTableHeaders, doUseSubTotalsAtTop);
         }
 
-        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders)
+        public static List<Request> GetAppendDataTableRequests(int sheetId, DataTable dt, int fgColorHeader, int bgColorHeader, int fgColorRow, int bgColorRow, bool doUseTableHeaders, bool doUseSubTotalsAtTop)
         {
             var requests = new List<Request>();
 
@@ -212,6 +212,15 @@ namespace AccountingServices
                 {
                     var appendCellsRequestHeader = CreateAppendCellRequest(sheetId, dt.Columns, fgColorHeader, bgColorHeader);
                     requests.Add(new Request() { AppendCells = appendCellsRequestHeader });
+                }
+
+                // insert empty subtotal row in next row
+                if (doUseSubTotalsAtTop)
+                {
+                    // initialize empty string array
+                    var emptyRow = Enumerable.Repeat<string>(string.Empty, dt.Columns.Count).ToArray();
+                    var appendCellsRequestSubTotals = CreateAppendCellRequest(sheetId, emptyRow, fgColorHeader, bgColorHeader);
+                    requests.Add(new Request() { AppendCells = appendCellsRequestSubTotals });
                 }
 
                 // append rows

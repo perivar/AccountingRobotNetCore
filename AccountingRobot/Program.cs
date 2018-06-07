@@ -15,8 +15,9 @@ namespace AccountingRobot
 {
     partial class Program
     {
-        const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL";
+        const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL2";
         const bool PROCESS_ALIEXPRESS = false;
+        const bool FORCE_UPDATE_YEAR = true;
 
         static void Main(string[] args)
         {
@@ -30,10 +31,10 @@ namespace AccountingRobot
             // prepopulate lookup lists
             Console.Out.WriteLine("Prepopulating Lookup Lists ...");
 
-            var stripeTransactions = StripeChargeFactory.Instance.GetLatest(configuration, true);
+            var stripeTransactions = StripeChargeFactory.Instance.GetLatest(configuration, FORCE_UPDATE_YEAR);
             Console.Out.WriteLine("Successfully read Stripe transactions ...");
 
-            var paypalTransactions = PayPalFactory.Instance.GetLatest(configuration, true);
+            var paypalTransactions = PayPalFactory.Instance.GetLatest(configuration, FORCE_UPDATE_YEAR);
             Console.Out.WriteLine("Successfully read PayPal transactions ...");
 
             // process the transactions and create accounting overview
@@ -44,7 +45,7 @@ namespace AccountingRobot
             customerNames = customerNames.Distinct().ToList();
 
             // find latest skandiabanken transaction spreadsheet
-            var sBankenTransactions = SBankenFactory.Instance.GetLatest(configuration, true);
+            var sBankenTransactions = SBankenFactory.Instance.GetLatest(configuration, FORCE_UPDATE_YEAR);
             var sBankenBankStatement = SBanken.GetBankStatementFromTransactions(sBankenTransactions);
             if (sBankenBankStatement.Transactions.Count() == 0)
             {
@@ -111,14 +112,15 @@ namespace AccountingRobot
                 {
                     using (var googleSheetsFactory = new GoogleSheetsFactory())
                     {
+                        bool doUseSubTotalsAtTop = true;
                         int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(GOOGLE_SHEET_NAME);
                         if (sheetId > 0)
                         {
-                            UpdateGoogleSheets(googleSheetsFactory, accountingItems);
+                            UpdateGoogleSheets(googleSheetsFactory, accountingItems, doUseSubTotalsAtTop);
                         }
                         else
                         {
-                            ExportToGoogleSheets(googleSheetsFactory, accountingItems);
+                            ExportToGoogleSheets(googleSheetsFactory, accountingItems, doUseSubTotalsAtTop);
                         }
                     }
                 }
@@ -166,7 +168,7 @@ namespace AccountingRobot
             return accountingHeaders;
         }
 
-        static void AppendDataTable(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doAddSheet, bool doUseAccountingHeaders, bool doUseTableHeaders, bool doAutoResizeColumns, bool doUseSubTotals, bool doHideColumns, bool doAddBasicFilter, bool doFreezeRows)
+        static void AppendDataTable(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doAddSheet, bool doUseAccountingHeaders, bool doUseTableHeaders, bool doAutoResizeColumns, bool doUseSubTotals, bool doHideColumns, bool doAddBasicFilter, bool doFreezeRows, bool doUseSubTotalsAtTop)
         {
             var dt = GetDataTable(accountingItems);
 
@@ -190,15 +192,32 @@ namespace AccountingRobot
 
             using (var googleBatchUpdateRequest = new GoogleSheetsBatchUpdateRequests())
             {
+                int formatStartRowIndex = startRowIndex;
+                int formatEndRowIndex = endRowIndex;
+
                 // append headers
                 if (doUseAccountingHeaders)
                 {
+                    formatStartRowIndex++;
+                    formatEndRowIndex++;
+
                     var accountingHeaders = GetAccountingHeaders();
                     googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendCellsRequest(sheetId, accountingHeaders, 0xFFFFFF, 0x000000));
                 }
 
-                // append data table in row under the headers, typically row 2
-                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, doUseTableHeaders));
+                if (doUseTableHeaders)
+                {
+                    formatStartRowIndex++;
+                    formatEndRowIndex++;
+                }
+                // if using subtotal in row 3, increment the starting row position for formatting
+                if (doUseSubTotalsAtTop)
+                {
+                    formatStartRowIndex++;
+                    formatEndRowIndex++;
+                }
+                // append data table in row under the headers, typically row 3
+                googleBatchUpdateRequest.Add(GoogleSheetsRequests.GetAppendDataTableRequests(sheetId, dt, 0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, doUseTableHeaders, doUseSubTotalsAtTop));
 
                 // auto resize columns
                 if (doAutoResizeColumns)
@@ -218,17 +237,17 @@ namespace AccountingRobot
                 if (doFreezeRows)
                 {
                     googleBatchUpdateRequest.Add(
-                        GoogleSheetsRequests.FreezeRowsRequest(sheetId)
+                        GoogleSheetsRequests.FreezeRowsRequest(sheetId, 3)
                     );
                 }
 
-                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex + 2, endRowIndex + 2, doUseSubTotals, doAddBasicFilter);
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, formatStartRowIndex, formatEndRowIndex, doUseSubTotals, doAddBasicFilter, doUseSubTotalsAtTop);
 
                 googleBatchUpdateRequest.Execute();
             }
         }
 
-        static void InsertDataTable(GoogleSheetsFactory googleSheetsFactory, DataTable dt, bool doAddSheet, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, bool doUseSubTotals, bool doAddBasicFilter)
+        static void InsertDataTable(GoogleSheetsFactory googleSheetsFactory, DataTable dt, bool doAddSheet, int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, bool doUseSubTotals, bool doAddBasicFilter, bool doUseSubTotalsAtTop)
         {
             // find or add google sheets spreadsheet 
             int sheetId = -1;
@@ -249,39 +268,51 @@ namespace AccountingRobot
                     startRowIndex, startColumnIndex,
                     0x000000, 0xFFFFFF, 0x000000, 0xdbe5f1, false));
 
-                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex, endRowIndex, doUseSubTotals, doAddBasicFilter);
+                ApplyGoogleSheetFormatting(googleBatchUpdateRequest, sheetId, startRowIndex, endRowIndex, doUseSubTotals, doAddBasicFilter, doUseSubTotalsAtTop);
 
                 googleBatchUpdateRequest.Execute();
             }
         }
 
-        static void ApplyGoogleSheetFormatting(GoogleSheetsBatchUpdateRequests googleBatchUpdateRequest, int sheetId, int startRowIndex, int endRowIndex, bool doUseSubTotals, bool doAddBasicFilter)
+        static void ApplyGoogleSheetFormatting(GoogleSheetsBatchUpdateRequests googleBatchUpdateRequest, int sheetId, int startRowIndex, int endRowIndex, bool doUseSubTotals, bool doAddBasicFilter, bool doUseSubTotalsAtTop)
         {
             // calculate row offset for the forumlas
             int formulaRowIndex = startRowIndex + 1;
+            int subTotalRowIndex = endRowIndex;
             int subTotalStartRow = 3;
-            int periodStartRowIndex = 2;
+            int intColumnsStartRowIndex = 3;
             int basicFilterStartRowIndex = 1;
 
-            // insert subtotal in last row
             if (doUseSubTotals)
             {
+                if (doUseSubTotalsAtTop)
+                {
+                    // insert subtotal in third row
+                    subTotalRowIndex = 2;
+                    subTotalStartRow++;
+                }
+                else
+                {
+                    // insert subtotal in last row
+                }
+
                 // =SUBTOTAL(109;O3:O174) = sum and ignore hidden values
                 googleBatchUpdateRequest.Add(
                     GoogleSheetsRequests.GetFormulaAndNumberFormatRequest(sheetId,
-                    string.Format("=SUBTOTAL(109;Q{0}:Q{1})", subTotalStartRow, endRowIndex),
-                    endRowIndex, endRowIndex + 1, "Q", "AY")
+                    //string.Format("=SUBTOTAL(109;Q{0}:Q{1})", subTotalStartRow, endRowIndex),
+                    string.Format("=SUBTOTAL(109;Q{0}:Q)", subTotalStartRow),
+                    subTotalRowIndex, subTotalRowIndex + 1, "Q", "AY")
                 );
             }
 
             // set int format to Periode and Bilagsnr
             googleBatchUpdateRequest.Add(
                 GoogleSheetsRequests.GetNumberFormatRequest(sheetId,
-                "0", 0x000000, 0xdbe5f1, periodStartRowIndex, endRowIndex, "B", "B"));
+                "0", 0x000000, 0xdbe5f1, intColumnsStartRowIndex, endRowIndex, "B", "B"));
 
             googleBatchUpdateRequest.Add(
                 GoogleSheetsRequests.GetNumberFormatRequest(sheetId,
-                "0", 0x000000, 0xdbe5f1, periodStartRowIndex, endRowIndex, "D", "D"));
+                "0", 0x000000, 0xdbe5f1, intColumnsStartRowIndex, endRowIndex, "D", "D"));
 
 
             // set basic filter for all rows, can only be applied to header
@@ -352,18 +383,18 @@ namespace AccountingRobot
             );
         }
 
-        static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems)
+        static void ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doUseSubTotalsAtTop)
         {
-            AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true, true, true);
+            AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true, true, true, doUseSubTotalsAtTop);
             Console.Out.WriteLine("Successfully wrote accounting file to Google Sheets");
         }
 
-        static void UpdateGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> newAccountingItems)
+        static void UpdateGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> newAccountingItems, bool doUseSubTotalsAtTop)
         {
             // Update Google Sheets spreadsheet 
             int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(GOOGLE_SHEET_NAME);
 
-            var dt = googleSheetsFactory.ReadDataTable(GOOGLE_SHEET_NAME, 2);
+            var dt = googleSheetsFactory.ReadDataTable(GOOGLE_SHEET_NAME, 2, 10000, doUseSubTotalsAtTop);
 
             var existingAccountingItems = new Dictionary<DataRow, AccountingItem>();
             foreach (DataRow row in dt.Rows)
@@ -454,7 +485,18 @@ namespace AccountingRobot
                 {
                     int startRowNumber = existingAccountingItemsToDelete.FirstOrDefault().Key.Field<int>("RowNumber");
                     int endRowNumber = existingAccountingItemsToDelete.Last().Key.Field<int>("RowNumber");
-                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, startRowNumber - 1, endRowNumber + 1)); // delete sub totals as well
+                    int deleteRowStartIndex = startRowNumber;
+                    int deleteRowEndIndex = endRowNumber;
+                    if (doUseSubTotalsAtTop)
+                    {
+                        deleteRowStartIndex--;
+                    }
+                    else
+                    {
+                        deleteRowStartIndex--;
+                        deleteRowEndIndex++;  // delete sub totals as well                        
+                    }
+                    googleBatchDeleteRequest.Add(GoogleSheetsRequests.GetDeleteRowsRequest(sheetId, deleteRowStartIndex, deleteRowEndIndex));
                     googleBatchDeleteRequest.Execute();
                 }
             }
@@ -474,7 +516,14 @@ namespace AccountingRobot
                     }
                     else
                     {
-                        startRowNumber = 2;
+                        if (doUseSubTotalsAtTop)
+                        {
+                            startRowNumber = 3;
+                        }
+                        else
+                        {
+                            startRowNumber = 2;
+                        }
                     }
                     googleBatchInsertRequest.Add(GoogleSheetsRequests.GetInsertRowsRequest(sheetId, startRowNumber, startRowNumber + newRowTotalCount, true));
                     googleBatchInsertRequest.Execute();
@@ -487,7 +536,7 @@ namespace AccountingRobot
                 int endRowIndex = startRowNumber + newRowTotalCount;
                 int startColumnIndex = 0;
                 int endColumnIndex = dtToInsert.Columns.Count + 1;
-                InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, true, true);
+                InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, true, true, true);
 
                 Console.Out.WriteLine("Successfully updated accounting file!");
             }
@@ -1247,7 +1296,7 @@ namespace AccountingRobot
             var to = date.CurrentDate;
 
             // prepopulate some lookup lists
-            var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, true);
+            var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, FORCE_UPDATE_YEAR);
             Console.Out.WriteLine("Successfully read Stripe payout transactions ...");
 
             // check if we are processing aliexpress
