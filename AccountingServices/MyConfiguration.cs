@@ -10,13 +10,29 @@ namespace AccountingServices
 
         public MyConfiguration()
         {
-            var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+            if (String.IsNullOrWhiteSpace(environment))
+            {
+                Console.WriteLine("Environment variable ASPNETCORE_ENVIRONMENT not set!");
+                Console.WriteLine("Using appsettings.json configuration file."); 
+            }
+            else
+            {
+                Console.WriteLine("Environment: {0}", environment);
+            }
 
             var configurationBuilder = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile("appsettings.development.json", optional: true)
-                .AddUserSecrets<MyConfiguration>()
-                .AddEnvironmentVariables();
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+
+            if (environment == "Development")
+            {
+                configurationBuilder
+                    .AddJsonFile($"appsettings.{environment}.json", optional: false);
+            }
+            configurationBuilder
+            .AddUserSecrets<MyConfiguration>()
+            .AddEnvironmentVariables();
 
             Configuration = configurationBuilder.Build();
         }
