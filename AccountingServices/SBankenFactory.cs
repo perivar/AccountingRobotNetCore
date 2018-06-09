@@ -149,7 +149,7 @@ namespace AccountingServices
             {
                 //Console.WriteLine("Current Culture: {0}", CultureInfo.CurrentCulture);
                 // ensure we use norwegian locale for the formats
-                CultureInfo no = new CultureInfo("nb-NO");
+                //CultureInfo no = new CultureInfo("nb-NO");
 
                 foreach (var transaction in jsonDe.items)
                 {
@@ -167,10 +167,14 @@ namespace AccountingServices
                         //string uniqueContentOriginal = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
                         //Console.WriteLine($"Unique Org: '{uniqueContentOriginal}'");
 
-                        string accountingDateNO = accountingDate.ToString("G", no);
-                        string interestDateNO = interestDate.ToString("G", no);
-                        string amountNO = amount.ToString("G", no);
-                        string uniqueContent = $"{accountingDateNO}{interestDateNO}{transactionTypeText}{text}{amountNO}";
+                        //string accountingDateNO = accountingDate.ToString("G", CultureInfo.InvariantCulture);
+                        //string interestDateNO = interestDate.ToString("G", CultureInfo.InvariantCulture);
+                        DateTime localAccountingDate = accountingDate;
+                        DateTime localInterestDate = interestDate;
+                        string accountingDateString = localAccountingDate.ToOADate().ToString("G", CultureInfo.InvariantCulture);
+                        string interestDateString = localInterestDate.ToOADate().ToString("G", CultureInfo.InvariantCulture);
+                        string amountString = amount.ToString("G", CultureInfo.InvariantCulture);
+                        string uniqueContent = $"{accountingDateString}{interestDateString}{transactionTypeText}{text}{amountString}";
 
                         string hashCode = Utils.CreateMD5(uniqueContent);
                         Console.WriteLine($"{hashCode}='{uniqueContent}'");
