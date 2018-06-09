@@ -171,9 +171,9 @@ namespace AccountingServices
                         string interestDateNO = interestDate.ToString("G", no);
                         string amountNO = amount.ToString("G", no);
                         string uniqueContent = $"{accountingDateNO}{interestDateNO}{transactionTypeText}{text}{amountNO}";
-                        Console.WriteLine($"Unique New: '{uniqueContent}'");
 
                         string hashCode = Utils.CreateMD5(uniqueContent);
+                        Console.WriteLine($"{hashCode}='{uniqueContent}'");
                         transactionId = hashCode;
                     }
 
