@@ -147,10 +147,6 @@ namespace AccountingServices
 
             if (jsonDe != null)
             {
-                //Console.WriteLine("Current Culture: {0}", CultureInfo.CurrentCulture);
-                // ensure we use norwegian locale for the formats
-                //CultureInfo no = new CultureInfo("nb-NO");
-
                 foreach (var transaction in jsonDe.items)
                 {
                     var amount = transaction.amount;
@@ -164,12 +160,6 @@ namespace AccountingServices
                     // Note, until Sbanken fixed their unique transaction Id issue, generate one ourselves
                     if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
                     {
-                        //string uniqueContentOriginal = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
-                        //Console.WriteLine($"Unique Org: '{uniqueContentOriginal}'");
-
-                        //string accountingDateNO = accountingDate.ToString("G", CultureInfo.InvariantCulture);
-                        //string interestDateNO = interestDate.ToString("G", CultureInfo.InvariantCulture);
-                        
                         // ensure we are working with proper objects
                         DateTime localAccountingDate = accountingDate;
                         DateTime localInterestDate = interestDate;
@@ -183,7 +173,6 @@ namespace AccountingServices
                         // combine and create md5
                         string uniqueContent = $"{accountingDateString}{interestDateString}{transactionTypeText}{text}{amountString}";
                         string hashCode = Utils.CreateMD5(uniqueContent);
-                        Console.WriteLine($"{hashCode}='{uniqueContent}'");
                         transactionId = hashCode;
                     }
 
