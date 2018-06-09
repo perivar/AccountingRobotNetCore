@@ -169,13 +169,19 @@ namespace AccountingServices
 
                         //string accountingDateNO = accountingDate.ToString("G", CultureInfo.InvariantCulture);
                         //string interestDateNO = interestDate.ToString("G", CultureInfo.InvariantCulture);
+                        
+                        // ensure we are working with proper objects
                         DateTime localAccountingDate = accountingDate;
                         DateTime localInterestDate = interestDate;
-                        string accountingDateString = localAccountingDate.ToOADate().ToString("G", CultureInfo.InvariantCulture);
-                        string interestDateString = localInterestDate.ToOADate().ToString("G", CultureInfo.InvariantCulture);
-                        string amountString = amount.ToString("G", CultureInfo.InvariantCulture);
-                        string uniqueContent = $"{accountingDateString}{interestDateString}{transactionTypeText}{text}{amountString}";
+                        decimal localAmount = amount;
 
+                        // convert to string
+                        string accountingDateString = localAccountingDate.ToString("G", CultureInfo.InvariantCulture);
+                        string interestDateString = localInterestDate.ToString("G", CultureInfo.InvariantCulture);
+                        string amountString = localAmount.ToString("G", CultureInfo.InvariantCulture);
+
+                        // combine and create md5
+                        string uniqueContent = $"{accountingDateString}{interestDateString}{transactionTypeText}{text}{amountString}";
                         string hashCode = Utils.CreateMD5(uniqueContent);
                         Console.WriteLine($"{hashCode}='{uniqueContent}'");
                         transactionId = hashCode;
