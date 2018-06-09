@@ -164,8 +164,8 @@ namespace AccountingServices
                     // Note, until Sbanken fixed their unique transaction Id issue, generate one ourselves
                     if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
                     {
-                        string uniqueContentOriginal = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
-                        Console.WriteLine($"Unique Org: '{uniqueContentOriginal}'");
+                        //string uniqueContentOriginal = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
+                        //Console.WriteLine($"Unique Org: '{uniqueContentOriginal}'");
 
                         string accountingDateNO = accountingDate.ToString("G", no);
                         string interestDateNO = interestDate.ToString("G", no);
