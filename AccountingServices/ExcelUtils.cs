@@ -18,8 +18,8 @@ namespace AccountingServices
             try
             {
                 double d = double.Parse(dateIntString);
-                DateTime conv = DateTime.FromOADate(d);
-                return conv;
+                DateTime dateTime = DateTime.FromOADate(d);
+                return dateTime;
             }
             catch (Exception)
             {
@@ -44,12 +44,12 @@ namespace AccountingServices
             }
         }
 
-        public static DateTime GetDateFromBankStatementString(string bankeStatementString)
+        public static DateTime GetDateFromBankStatementString(string bankStatementString)
         {
             // parse "UTGÅENDE SALDO 20.12.2017"
 
             Regex regex = new Regex(@".*(\d{2}\.\d{2}\.\d{4})");
-            Match match = regex.Match(bankeStatementString);
+            Match match = regex.Match(bankStatementString);
             if (match.Success)
             {
                 var dateString = match.Groups[1].Value;

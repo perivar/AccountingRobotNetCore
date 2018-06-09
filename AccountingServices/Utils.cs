@@ -32,7 +32,7 @@ namespace AccountingServices
 
         public static FileDate FindLastCacheFile(string cacheDir, string cacheFileNamePrefix, string dateFromToRegexPattern, string dateParsePattern, string separator)
         {
-            var dateDictonary = new SortedDictionary<DateTime, FileDate>();
+            var dateDictionary = new SortedDictionary<DateTime, FileDate>();
 
             string regexp = string.Format("{0}{1}{2}", cacheFileNamePrefix, separator, dateFromToRegexPattern);
             Regex reg = new Regex(regexp);
@@ -56,14 +56,14 @@ namespace AccountingServices
                         To = dateTo,
                         FilePath = filePath
                     };
-                    dateDictonary.Add(dateTo, fileDate);
+                    dateDictionary.Add(dateTo, fileDate);
                 }
             }
 
-            if (dateDictonary.Count() > 0)
+            if (dateDictionary.Count() > 0)
             {
                 // the first element is the newest date
-                return dateDictonary.Last().Value;
+                return dateDictionary.Last().Value;
             }
 
             // return a default file date
@@ -160,7 +160,7 @@ namespace AccountingServices
         public static IWebDriver GetChromeWebDriver(string userDataDir, string chromeDriverExePath)
         {
 
-            // workaroud to too a bug in dot net core that makes findelement so slow
+            // workaround to a bug in dot net core that makes findelement so slow
             // https://github.com/SeleniumHQ/selenium/issues/4988
             // change the chrome driver to run on another port and 127.0.0.1 instead of localhost
 

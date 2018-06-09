@@ -79,9 +79,9 @@ namespace AccountingServices
 
             var valueRange = new ValueRange();
 
-            //List<object> oblist = rowData.Select(x => string.IsNullOrEmpty(x) ? "" : x).Cast<object>().ToList();
-            List<object> oblist = rowData.Cast<object>().ToList();
-            valueRange.Values = new List<IList<object>> { oblist };
+            //List<object> objectlist = rowData.Select(x => string.IsNullOrEmpty(x) ? "" : x).Cast<object>().ToList();
+            List<object> objectlist = rowData.Cast<object>().ToList();
+            valueRange.Values = new List<IList<object>> { objectlist };
 
             var appendRequest = Service.Spreadsheets.Values.Append(valueRange, SPREADSHEET_ID, range);
             appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
@@ -96,9 +96,9 @@ namespace AccountingServices
 
             var valueRange = new ValueRange();
 
-            //List<object> oblist = rowData.Select(x => string.IsNullOrEmpty(x) ? "" : x).Cast<object>().ToList();
-            List<object> oblist = rowData.Cast<object>().ToList();
-            valueRange.Values = new List<IList<object>> { oblist };
+            //List<object> objectlist = rowData.Select(x => string.IsNullOrEmpty(x) ? "" : x).Cast<object>().ToList();
+            List<object> objectlist = rowData.Cast<object>().ToList();
+            valueRange.Values = new List<IList<object>> { objectlist };
 
             var updateRequest = Service.Spreadsheets.Values.Update(valueRange, SPREADSHEET_ID, range);
             updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
@@ -713,8 +713,8 @@ namespace AccountingServices
             var range = $"{sheetName}!A:F";
             var valueRange = new ValueRange();
 
-            var oblist = new List<object>() { "Hello!", "This", "was", "insertd", "via", "C#" };
-            valueRange.Values = new List<IList<object>> { oblist };
+            var objectlist = new List<object>() { "Hello!", "This", "was", "inserted", "via", "C#" };
+            valueRange.Values = new List<IList<object>> { objectlist };
 
             var appendRequest = Service.Spreadsheets.Values.Append(valueRange, SPREADSHEET_ID, range);
             appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
@@ -726,8 +726,8 @@ namespace AccountingServices
             var range = $"{sheetName}!D543";
             var valueRange = new ValueRange();
 
-            var oblist = new List<object>() { "updated" };
-            valueRange.Values = new List<IList<object>> { oblist };
+            var objectlist = new List<object>() { "updated" };
+            valueRange.Values = new List<IList<object>> { objectlist };
 
             var updateRequest = Service.Spreadsheets.Values.Update(valueRange, SPREADSHEET_ID, range);
             updateRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;

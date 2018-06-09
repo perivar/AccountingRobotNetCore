@@ -157,7 +157,7 @@ namespace AccountingServices
                     var interestDate = transaction.interestDate;
 
                     var transactionId = transaction.transactionId;
-                    // Note, untill Sbanken fixed their unique transaction Id issue, generate one ourselves
+                    // Note, until Sbanken fixed their unique transaction Id issue, generate one ourselves
                     if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
                     {
                         string uniqueContent = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";

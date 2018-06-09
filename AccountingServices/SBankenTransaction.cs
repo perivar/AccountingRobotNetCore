@@ -203,7 +203,7 @@ namespace AccountingServices
                 // parse date
                 DateTime purchaseDate = DateTime.ParseExact(dateString, "dd.MM.yyyy", CultureInfo.InvariantCulture);
 
-                // store properies
+                // store properties
                 ExternalPurchaseDate = purchaseDate;
                 ExternalPurchaseAmount = ExcelUtils.GetDecimalFromExcelCurrencyString(amount);
                 ExternalPurchaseCurrency = currency;

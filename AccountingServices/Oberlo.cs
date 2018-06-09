@@ -44,7 +44,7 @@ namespace AccountingServices
                 username.Clear();
                 username.SendKeys(oberloUsername);
 
-                // if the above crash, it might very well be Chrome and ChromeDriver incompability
+                // if the above crash, it might very well be Chrome and ChromeDriver incompatibility
                 // please update the ChromeDriver to fit the Chrome version used.
 
                 password.Clear();
@@ -204,7 +204,7 @@ namespace AccountingServices
                 var processedAt = order.processed_at;
                 var totalPrice = order.total_price;
                 var financialStatus = order.financial_status;
-                var fulfillmentStatus = order.fullfullment_status;
+                var fulfillmentStatus = order.fullfullment_status; // TODO: has oberlo spelled this wrong?
                 var shippingName = order.shipping_name;
                 var shippingZip = order.shipping_zip;
                 var shippingCity = order.shipping_city;
