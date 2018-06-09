@@ -161,6 +161,7 @@ namespace AccountingServices
                     if (transactionId == null || !transactionId.HasValues || transactionId == JTokenType.Null)
                     {
                         string uniqueContent = $"{accountingDate}{interestDate}{transactionTypeText}{text}{amount}";
+                        Console.WriteLine($"Unique Content is: '{uniqueContent}'");
                         string hashCode = Utils.CreateMD5(uniqueContent);
                         transactionId = hashCode;
                     }
