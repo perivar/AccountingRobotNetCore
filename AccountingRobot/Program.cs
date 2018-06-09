@@ -1335,6 +1335,9 @@ namespace AccountingRobot
             var usedStripePayoutTransactionIDs = new HashSet<string>();
             var usedOrderNumbers = new HashSet<string>();
 
+            // ensure we use norwegian locale for the formats
+            CultureInfo no = new CultureInfo("nb-NO");
+
             // and map each one to the right meta information
             foreach (var skandiabankenTransaction in skandiabankenTransactions)
             {
@@ -1371,7 +1374,7 @@ namespace AccountingRobot
                 {
 
                     Console.WriteLine("{0}", skandiabankenTransaction);
-                    accountingItem.Text = string.Format("{0:dd.MM.yyyy} {1} {2} {3:C} (Kurs: {4})", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor, skandiabankenTransaction.ExternalPurchaseAmount, skandiabankenTransaction.ExternalPurchaseCurrency, skandiabankenTransaction.ExternalPurchaseExchangeRate);
+                    accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1} {2} {3:C} (Kurs: {4})", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor, skandiabankenTransaction.ExternalPurchaseAmount, skandiabankenTransaction.ExternalPurchaseCurrency, skandiabankenTransaction.ExternalPurchaseExchangeRate);
                     accountingItem.PurchaseOtherCurrency = skandiabankenTransaction.ExternalPurchaseAmount;
                     accountingItem.OtherCurrency = skandiabankenTransaction.ExternalPurchaseCurrency.ToUpper();
                     accountingItem.AccountBank = skandiabankenTransaction.AccountChange;
@@ -1394,7 +1397,7 @@ namespace AccountingRobot
                     accountingType == SBankenTransaction.AccountingTypeEnum.CostOfGoods)
                 {
                     Console.WriteLine("{0}", skandiabankenTransaction);
-                    accountingItem.Text = string.Format("{0:dd.MM.yyyy} {1} {2} {3:C} (Kurs: {4})", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor, skandiabankenTransaction.ExternalPurchaseAmount, skandiabankenTransaction.ExternalPurchaseCurrency, skandiabankenTransaction.ExternalPurchaseExchangeRate);
+                    accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1} {2} {3:C} (Kurs: {4})", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor, skandiabankenTransaction.ExternalPurchaseAmount, skandiabankenTransaction.ExternalPurchaseCurrency, skandiabankenTransaction.ExternalPurchaseExchangeRate);
                     accountingItem.PurchaseOtherCurrency = skandiabankenTransaction.ExternalPurchaseAmount;
                     accountingItem.OtherCurrency = skandiabankenTransaction.ExternalPurchaseCurrency.ToUpper();
                     accountingItem.AccountBank = skandiabankenTransaction.AccountChange;
@@ -1410,7 +1413,7 @@ namespace AccountingRobot
                 else if (accountingType == SBankenTransaction.AccountingTypeEnum.TransferPaypal)
                 {
                     Console.WriteLine("{0}", skandiabankenTransaction);
-                    accountingItem.Text = string.Format("{0:dd.MM.yyyy} {1}", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor);
+                    accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1}", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor);
                     accountingItem.Gateway = "paypal";
 
                     accountingItem.AccountPaypal = -skandiabankenTransaction.AccountChange;
@@ -1456,7 +1459,7 @@ namespace AccountingRobot
                 else if (accountingType == SBankenTransaction.AccountingTypeEnum.TransferStripe)
                 {
                     Console.WriteLine("{0}", skandiabankenTransaction);
-                    accountingItem.Text = string.Format("{0:dd.MM.yyyy} {1}", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor);
+                    accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1}", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor);
                     accountingItem.Gateway = "stripe";
 
                     accountingItem.AccountStripe = -skandiabankenTransaction.AccountChange;
@@ -1517,7 +1520,7 @@ namespace AccountingRobot
                 else if (customerNames.Contains(skandiabankenTransaction.Text))
                 {
                     Console.WriteLine("{0}", skandiabankenTransaction);
-                    accountingItem.Text = string.Format("{0}", skandiabankenTransaction.Text);
+                    accountingItem.Text = string.Format(no, "{0}", skandiabankenTransaction.Text);
                     accountingItem.Gateway = "vipps";
                     accountingItem.AccountingType = "OVERFØRSEL VIPPS";
                     accountingItem.AccountBank = skandiabankenTransaction.AccountChange;
@@ -1541,7 +1544,7 @@ namespace AccountingRobot
                         accountingItem.OtherCurrency = "USD";
                     }
 
-                    accountingItem.Text = string.Format("{0}", skandiabankenTransaction.Text);
+                    accountingItem.Text = string.Format(no, "{0}", skandiabankenTransaction.Text);
                     accountingItem.AccountBank = skandiabankenTransaction.AccountChange;
 
                     switch (accountingType)
