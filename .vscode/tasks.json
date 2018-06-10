@@ -16,6 +16,20 @@
             }
         },
         {
+            "label": "build-webclient",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/AccountingWebClient/AccountingWebClient.csproj"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
             "label": "publish release win10-x64",
             "command": "dotnet",
             "args": [

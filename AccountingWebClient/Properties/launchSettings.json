@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WebClient": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:5001/"
+    }
+  }
+}
