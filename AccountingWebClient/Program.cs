@@ -17,10 +17,11 @@ namespace AccountingWebClient
             BuildWebHost(args).Run();
         }
 
-        public static IWebHost BuildWebHost(string[] args) 
-	{
-
-	    var configuration = new ConfigurationBuilder().AddCommandLine(args).Build();
+        public static IWebHost BuildWebHost(string[] args)
+        {
+            // CreateDefaultBuilder doesn't work with command line "dotnet run -urls http://xxxx:xxxx"
+            // unless I add the following code manually:
+            var configuration = new ConfigurationBuilder().AddCommandLine(args).Build();
 
             /*
             The tasks that are performed by CreateDefaultBuilder is
@@ -36,7 +37,7 @@ namespace AccountingWebClient
             5. Integrates the Kestrel run with IIS             
              */
             return WebHost.CreateDefaultBuilder(args)
-		.UseConfiguration(configuration)
+                .UseConfiguration(configuration)
                 .ConfigureAppConfiguration(builder =>
                 {
                     // Add UserSecrets for both development and Production environment
@@ -44,6 +45,6 @@ namespace AccountingWebClient
                 })
                 .UseStartup<Startup>()
                 .Build();
-         }
+        }
     }
 }

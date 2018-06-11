@@ -1,0 +1,42 @@
+@model LoginData
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+
+<html>
+<body>
+<div class="container">
+    <div class="row vertical-offset-100">
+    	<div class="col-md-4 col-md-offset-4">
+    		<div class="panel panel-default">
+			  	<div class="panel-heading">
+			    	<h3 class="panel-title">Please sign in</h3>
+			 	</div>
+                <div>
+                    <div asp-validation-summary="All" class="text-danger"></div>
+                </div>
+			  	<div class="panel-body">
+			    	<form method="post">
+                    <fieldset>
+			    	  	<div class="form-group">
+                            Username: <input class="form-control" asp-for="Username" value="" />
+			    		</div>
+			    		<div class="form-group">
+                            Password: <input class="form-control" asp-for="Password" value="" />
+			    		</div>
+			    		<div class="checkbox">
+			    	    	<label>
+                                <input asp-for="RememberMe" type="checkbox" /> Remember me
+			    	    	</label>
+			    	    </div>
+			    		<input class="btn btn-lg btn-success btn-block" type="submit" value="Login">
+			    	</fieldset>
+                    @Html.AntiForgeryToken()
+			      	</form>
+			    </div>
+			</div>
+		</div>
+	</div>
+</div>    
+</body>
+</html>
