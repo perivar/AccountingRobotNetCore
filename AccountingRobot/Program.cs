@@ -13,16 +13,20 @@ using System.Data.Common;
 
 namespace AccountingRobot
 {
-    partial class Program
+    public class Program
     {
         const string GOOGLE_SHEET_NAME = "BILAGSJOURNAL";
         const bool PROCESS_ALIEXPRESS = false;
         const bool FORCE_UPDATE_YEAR = true;
+        const bool USE_EXCEL = false;
 
         static void Main(string[] args)
         {
-            bool USE_EXCEL = false;
+            Process();
+        }
 
+        public static void Process()
+        {
             // init date
             var date = new Date();
 

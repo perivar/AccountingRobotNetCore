@@ -66,6 +66,17 @@ namespace AccountingWebClient.Controllers
             return View();
         }
 
+        [Authorize]
+        public IActionResult Process()
+        {
+            AccountingRobot.Program.Process();
+            
+            ViewData["Message"] = "Accounting Spreadsheet Updated";
+
+            return View("Index");
+        }
+
+
         [AllowAnonymous]
         public IActionResult About()
         {

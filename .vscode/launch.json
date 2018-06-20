@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": ".NET Core Launch (web)",
+            "name": ".NET Core Launch (IE)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-webclient",
@@ -63,7 +63,7 @@
             }
         },
         {
-            "name": ".NET Core Launch (console)",
+            "name": ".NET Core Launch (Console)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
