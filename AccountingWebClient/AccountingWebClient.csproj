@@ -4,21 +4,22 @@
     <UserSecretsId>wazalo-account-services</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.8" />
-    <PackageReference Include="BuildBundlerMinifier" Version="2.8.391" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="2.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Session" Version="2.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.8"/>
+    <PackageReference Include="BuildBundlerMinifier" Version="2.8.391"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.0.2"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.0.2"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="2.0.2"/>
+    <PackageReference Include="Microsoft.AspNetCore.Session" Version="2.0.3"/>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.0.2"/>
   </ItemGroup>
   <ItemGroup>
-    <DotNetCliToolReference Include="Microsoft.Extensions.SecretManager.Tools" Version="2.0.2" />
+    <DotNetCliToolReference Include="Microsoft.Extensions.SecretManager.Tools" Version="2.0.2"/>
   </ItemGroup>
   <ItemGroup>
-    <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.4" />
+    <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.4"/>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\AccountingServices\AccountingServices.csproj" />
-    <ProjectReference Include="..\AccountingRobot\AccountingRobot.csproj" />
+    <ProjectReference Include="..\AccountingServices\AccountingServices.csproj"/>
+    <ProjectReference Include="..\AccountingRobot\AccountingRobot.csproj"/>
   </ItemGroup>
 </Project>

@@ -42,5 +42,16 @@
       "renameLocals": false,
       "adjustRelativePaths": false
     }
+  },
+  {
+    "outputFileName": "wwwroot/lib/signalr/signalr.js",
+    "inputFiles": [
+      "node_modules/@aspnet/signalr/dist/browser/signalr.js"
+    ],
+    "minify": {
+      "enabled": false,
+      "renameLocals": false,
+      "adjustRelativePaths": false
+    }
   }
 ]

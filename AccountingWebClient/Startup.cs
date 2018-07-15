@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using AccountingWebClient.Hubs;
 
 namespace AccountingWebClient
 {
@@ -40,10 +42,19 @@ namespace AccountingWebClient
 
             // Enable session storage
             services.AddSession();
+
+            // Enable SignalR
+            services.AddSignalR();
+
+            // Enable the background services
+            services.AddSingleton<RandomStringProvider>();
+            // services.AddSingleton<IHostedService, DataRefreshService>();
+            services.AddHostedService<QueuedHostedService>();
+            services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app, Microsoft.AspNetCore.Hosting.IHostingEnvironment env)
         {
             if (env.IsDevelopment())
             {
@@ -63,9 +74,15 @@ namespace AccountingWebClient
             // IMPORTANT: This session call MUST go before UseMvc()
             app.UseSession();
 
+            app.UseSignalR(routes =>
+            {
+                routes.MapHub<JobProgressHub>("/jobprogress");
+            });
+
             // the default route is sufficient
             // {controller=Home}/{action=Index}/{id?}
             app.UseMvcWithDefaultRoute();
+
         }
     }
 }

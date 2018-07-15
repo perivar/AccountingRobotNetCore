@@ -1,12 +1,21 @@
 {
+  "name": "asp.net_core_with_signalR",
   "version": "1.0.0",
-  "name": "asp.net",
+  "description": "run npm install to install the node_modules directory",
+  "main": "index.js",
   "private": true,
-  "devDependencies": {
-    "bootstrap": "^4.1.1",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "keywords": [],
+  "dependencies": {
+    "bootstrap": "^4.1.2",
     "jquery": "^3.3.1",
     "popper.js": "^1.14.3",
     "bootstrap-multiselect": "^0.9.13-1",
-    "clipboard": "^2.0.1"
+    "clipboard": "^2.0.1",
+    "@aspnet/signalr": "^1.0.2"
   }
 }

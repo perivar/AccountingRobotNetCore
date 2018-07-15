@@ -8,18 +8,38 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using AccountingWebClient.Models;
+using AccountingWebClient.Hubs;
 
 namespace AccountingWebClient.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly IConfiguration appConfig;
+        // dependency injected in Startup.cs
+        public IBackgroundTaskQueue Queue { get; }
+        private readonly IApplicationLifetime _appLifetime;
+        private readonly ILogger<HomeController> _logger;
+        private readonly IConfiguration _appConfig;
+        private readonly IHubContext<JobProgressHub> _hubContext;
+        private readonly RandomStringProvider _randomStringProvider;
 
-        public HomeController(IConfiguration configuration)
+        public HomeController(IBackgroundTaskQueue queue,
+            IApplicationLifetime appLifetime,
+            ILogger<HomeController> logger,
+            IConfiguration configuration,
+            IHubContext<JobProgressHub> hubContext,
+            RandomStringProvider randomStringProvider)
         {
-            appConfig = configuration;
+            Queue = queue;
+            _appLifetime = appLifetime;
+            _logger = logger;
+            _appConfig = configuration;
+            _hubContext = hubContext;
+            _randomStringProvider = randomStringProvider;
         }
 
         [AllowAnonymous]
@@ -32,8 +52,8 @@ namespace AccountingWebClient.Controllers
         public IActionResult Login(LoginData loginData)
         {
             // get shopify configuration parameters
-            string username = appConfig["OberloUsername"];
-            string password = appConfig["OberloPassword"];
+            string username = _appConfig["OberloUsername"];
+            string password = _appConfig["OberloPassword"];
 
             if (ModelState.IsValid)
             {
@@ -70,7 +90,7 @@ namespace AccountingWebClient.Controllers
         public IActionResult Process()
         {
             AccountingRobot.Program.Process();
-            
+
             ViewData["Message"] = "Accounting Spreadsheet Updated";
 
             return View("Index");
@@ -96,6 +116,40 @@ namespace AccountingWebClient.Controllers
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        [HttpPost]
+        public IActionResult StartProgress()
+        {
+            string jobId = Guid.NewGuid().ToString("N");
+
+            Queue.QueueBackgroundWorkItem(async cancellationToken =>
+                {
+                    _logger.LogInformation(
+                        $"Queued Background Task {jobId} is running.");
+
+
+                    for (int delayLoop = 0; delayLoop < 10; delayLoop++)
+                    {
+                        _logger.LogInformation(
+                            $"Queued Background Task {jobId} is running. {delayLoop}/10");
+
+                        await _randomStringProvider.UpdateString(cancellationToken);
+                        await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                    }
+
+                    _logger.LogInformation(
+                        $"Queued Background Task {jobId} is complete. 10/10");
+                });
+
+            return RedirectToAction("Progress", new { jobId });
+        }
+
+        public IActionResult Progress(string jobId)
+        {
+            ViewBag.JobId = jobId;
+
+            return View();
         }
     }
 }

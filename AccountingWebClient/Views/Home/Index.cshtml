@@ -16,3 +16,21 @@
         </div>
     </div>
 </div>
+
+
+<div class="container">
+    <div class="row">
+        <div class="col p-2">
+            <h2>Start background process</h2>
+            <p>Start a long running process by clicking on the button below:</p>
+            <form asp-action="StartProgress">
+                <button class="btn btn-primary">Queue Background Job</button>
+            </form>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col p-2">
+            <a class="btn btn-primary" asp-controller="api" asp-action="RandomString" role="button" target="_new">Get Random String</a>
+        </div>
+    </div>
+</div>    
