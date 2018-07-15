@@ -2,6 +2,7 @@ using System;
 using Xunit;
 using Serilog;
 using AccountingServices;
+using AccountingServices.Helpers;
 
 namespace AccountingTest
 {

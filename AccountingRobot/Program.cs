@@ -10,6 +10,15 @@ using AccountingServices;
 using System.Text.RegularExpressions;
 using Google.Apis.Sheets.v4.Data;
 using System.Data.Common;
+using AccountingServices.Helpers;
+using AccountingServices.Stripe;
+using AccountingServices.PayPalService;
+using AccountingServices.SBanken;
+using AccountingServices.GoogleSheets;
+using AccountingServices.Excel;
+using AccountingServices.Oberlo;
+using AccountingServices.AliExpress;
+using AccountingServices.Shopify;
 
 namespace AccountingRobot
 {
