@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -6,10 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace AccountingWebClient
 {
-    public class QueuedHostedService : IHostedService
+    // https://stackoverflow.com/questions/51115710/net-core-queue-background-tasks
+    public class QueuedHostedService : BackgroundService
     {
-        private CancellationTokenSource _shutdown =
-            new CancellationTokenSource();
         private Task _backgroundTask;
         private readonly ILogger _logger;
 
@@ -22,42 +22,56 @@ namespace AccountingWebClient
 
         public IBackgroundTaskQueue TaskQueue { get; }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        protected async override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Queued Hosted Service is starting.");
-
-            _backgroundTask = Task.Run(BackgroundProceessing);
-
-            return Task.CompletedTask;
-        }
-
-        private async Task BackgroundProceessing()
-        {
-            while (!_shutdown.IsCancellationRequested)
+            while (false == stoppingToken.IsCancellationRequested)
             {
-                var workItem =
-                    await TaskQueue.DequeueAsync(_shutdown.Token);
-
+                var workItem = await TaskQueue.DequeueAsync(stoppingToken);
                 try
                 {
-                    await workItem(_shutdown.Token);
+                    await workItem(stoppingToken);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex,
-                        $"Error occurred executing {nameof(workItem)}.");
+                    this._logger.LogError(ex, $"Error occurred executing {nameof(workItem)}.");
                 }
             }
         }
+    }
 
-        public Task StopAsync(CancellationToken cancellationToken)
+    public interface IBackgroundTaskQueue
+    {
+        void QueueBackgroundWorkItem(Func<CancellationToken, Task> workItem);
+
+        Task<Func<CancellationToken, Task>> DequeueAsync(
+            CancellationToken cancellationToken);
+    }
+
+    public class BackgroundTaskQueue : IBackgroundTaskQueue
+    {
+        private ConcurrentQueue<Func<CancellationToken, Task>> _workItems =
+            new ConcurrentQueue<Func<CancellationToken, Task>>();
+        private SemaphoreSlim _signal = new SemaphoreSlim(0);
+
+        public void QueueBackgroundWorkItem(
+            Func<CancellationToken, Task> workItem)
         {
-            _logger.LogInformation("Queued Hosted Service is stopping.");
+            if (workItem == null)
+            {
+                throw new ArgumentNullException(nameof(workItem));
+            }
 
-            _shutdown.Cancel();
+            _workItems.Enqueue(workItem);
+            _signal.Release();
+        }
 
-            return Task.WhenAny(_backgroundTask,
-                Task.Delay(Timeout.Infinite, cancellationToken));
+        public async Task<Func<CancellationToken, Task>> DequeueAsync(
+            CancellationToken cancellationToken)
+        {
+            await _signal.WaitAsync(cancellationToken);
+            _workItems.TryDequeue(out var workItem);
+
+            return workItem;
         }
     }
 }
