@@ -26,7 +26,6 @@ namespace AccountingWebClient.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IConfiguration _appConfig;
         private readonly IHubContext<JobProgressHub> _hubContext;
-        private readonly RandomStringProvider _randomStringProvider;
         private readonly AccountingRobot _accountingRobot;
 
 
@@ -35,7 +34,6 @@ namespace AccountingWebClient.Controllers
             ILogger<HomeController> logger,
             IConfiguration configuration,
             IHubContext<JobProgressHub> hubContext,
-            RandomStringProvider randomStringProvider,
             AccountingRobot accountingRobot)
         {
             Queue = queue;
@@ -43,7 +41,6 @@ namespace AccountingWebClient.Controllers
             _logger = logger;
             _appConfig = configuration;
             _hubContext = hubContext;
-            _randomStringProvider = randomStringProvider;
             _accountingRobot = accountingRobot;
         }
 
@@ -91,12 +88,6 @@ namespace AccountingWebClient.Controllers
             return View();
         }
 
-        [Authorize]
-        public IActionResult Process()
-        {
-            return View("Index");
-        }
-
 
         [AllowAnonymous]
         public IActionResult About()
@@ -120,6 +111,7 @@ namespace AccountingWebClient.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public IActionResult StartProgress()
         {
             string jobId = Guid.NewGuid().ToString("N");

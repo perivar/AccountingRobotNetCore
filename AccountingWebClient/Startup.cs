@@ -53,7 +53,6 @@ namespace AccountingWebClient
 
             // Enable the background services
             services.AddSingleton<AccountingRobot>();
-            // services.AddSingleton<RandomStringProvider>();
             services.AddHostedService<QueuedHostedService>();
             services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
         }

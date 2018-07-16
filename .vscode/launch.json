@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-webclient",
-            "program": "${workspaceFolder}/AccountingWebClient/bin/Debug/netcoreapp2.0/AccountingWebClient.dll",
+            "program": "${workspaceFolder}/AccountingWebClient/bin/Debug/netcoreapp2.1/AccountingWebClient.dll",
             "args": [],
             "cwd": "${workspaceFolder}/AccountingWebClient",
             "stopAtEntry": false,
@@ -41,7 +41,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-webclient",
-            "program": "${workspaceFolder}/AccountingWebClient/bin/Debug/netcoreapp2.0/AccountingWebClient.dll",
+            "program": "${workspaceFolder}/AccountingWebClient/bin/Debug/netcoreapp2.1/AccountingWebClient.dll",
             "args": [],
             "cwd": "${workspaceFolder}/AccountingWebClient",
             "stopAtEntry": false,
@@ -68,7 +68,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/AccountingRobot/bin/Debug/netcoreapp2.0/AccountingRobot.dll",
+            "program": "${workspaceFolder}/AccountingRobot/bin/Debug/netcoreapp2.1/AccountingRobot.dll",
             "args": [],
             "cwd": "${workspaceFolder}/AccountingRobot",
             // For more information about the 'console' field, see https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md#console-terminal-window

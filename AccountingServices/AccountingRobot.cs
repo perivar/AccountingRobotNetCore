@@ -23,7 +23,6 @@ using System.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Serilog;
 
 namespace AccountingServices
 {
@@ -43,23 +42,6 @@ namespace AccountingServices
 
         public AccountingRobot() : this(DEFAULT_PROCESS_ALIEXPRESS, DEFAULT_FORCE_UPDATE_YEAR, DEFAULT_USE_EXCEL)
         {
-            Log.Logger = new LoggerConfiguration()
-               .MinimumLevel.Verbose()
-               .WriteTo.Console()
-               .WriteTo.File(@"C:\Users\pnerseth\My Projects\accountingrobot.log")
-               .CreateLogger();
-
-            // https://docs.microsoft.com/en-us/aspnet/core/signalr/configuration?view=aspnetcore-2.1
-            Log.Verbose("Setting up HubConnectionBuilder...");
-            connection = new HubConnectionBuilder()
-            .WithUrl("http://localhost:9999/jobprogress")
-            .ConfigureLogging(logging =>
-            {
-                logging.SetMinimumLevel(LogLevel.Trace);
-                logging.AddConsole();
-            })
-            .Build();
-            Log.Verbose("Finished setting up HubConnectionBuilder...");
         }
 
         public AccountingRobot(bool processAliExpress, bool forceUpdateYear, bool useExcel)
@@ -67,6 +49,16 @@ namespace AccountingServices
             this.ProcessAliExpress = processAliExpress;
             this.ForceUpdateYear = forceUpdateYear;
             this.UseExcel = useExcel;
+
+            // https://docs.microsoft.com/en-us/aspnet/core/signalr/configuration?view=aspnetcore-2.1
+            connection = new HubConnectionBuilder()
+            .WithUrl("http://localhost:9999/jobprogress")
+            .ConfigureLogging(logging =>
+            {
+                logging.SetMinimumLevel(LogLevel.Information);
+                logging.AddConsole();
+            })
+            .Build();
         }
 
         private async Task OutputMessage(string message)
@@ -75,14 +67,12 @@ namespace AccountingServices
             {
                 try
                 {
-                    Log.Verbose("Starting hub connection ...");
                     await connection.StartAsync();
                     hubConnectionStarted = true;
-                    Log.Verbose("Hub connection started ...");
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("Failed starting SignalR client: {0}", ex.Message);
+                    Console.Error.WriteLine("Failed starting SignalR client: {0}", ex.Message);
                 }
             }
 
@@ -90,13 +80,11 @@ namespace AccountingServices
             {
                 try
                 {
-                    Log.Verbose("Sending message ...");
-                    await connection.InvokeAsync("SendMessage", "AccountingRobot", message);
-                    Log.Verbose("Message sent ...");
+                    await connection.InvokeAsync("SendMessage", "Robot", message);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("Failed sending message to SignalR Hub: {0}", ex.Message);
+                    Console.Error.WriteLine("Failed sending message to SignalR Hub: {0}", ex.Message);
                 }
             }
         }
