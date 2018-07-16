@@ -1,15 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.Globalization;
 using IdentityModel.Client;
 using Microsoft.Extensions.Configuration;
-using System.Globalization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Text.RegularExpressions;
 using AccountingServices.Helpers;
 
 namespace AccountingServices.SBankenService
@@ -32,11 +33,11 @@ namespace AccountingServices.SBankenService
             }
         }
 
-        public override List<SBankenTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, FileDate lastCacheFileInfo, DateTime from, DateTime to)
+        public override List<SBankenTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
         {
             // we have to combine two files:
             // the original cache file and the new transactions file
-            Console.Out.WriteLine("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             var newSBankenTransactions = GetSBankenTransactions(configuration, from, to);
             var originalSBankenTransactions = Utils.ReadCacheFile<SBankenTransaction>(lastCacheFileInfo.FilePath);
 
@@ -50,9 +51,9 @@ namespace AccountingServices.SBankenService
             return updatedSBankenTransactions;
         }
 
-        public override List<SBankenTransaction> GetList(IMyConfiguration configuration, DateTime from, DateTime to)
+        public override List<SBankenTransaction> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            Console.Out.WriteLine("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             return GetSBankenTransactions(configuration, from, to);
         }
 

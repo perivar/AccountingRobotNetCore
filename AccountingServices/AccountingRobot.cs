@@ -36,10 +36,8 @@ namespace AccountingServices
         public bool ProcessAliExpress { get; set; }
         public bool ForceUpdateYear { get; set; }
         public bool UseExcel { get; set; }
-        public string JobId { get; set; }
 
-        HubConnection connection;
-        bool hubConnectionStarted = false;
+        private SignalRClientWriter signalr;
 
         public AccountingRobot() : this(DEFAULT_PROCESS_ALIEXPRESS, DEFAULT_FORCE_UPDATE_YEAR, DEFAULT_USE_EXCEL)
         {
@@ -51,49 +49,13 @@ namespace AccountingServices
             this.ForceUpdateYear = forceUpdateYear;
             this.UseExcel = useExcel;
 
-            // https://docs.microsoft.com/en-us/aspnet/core/signalr/configuration?view=aspnetcore-2.1
-            connection = new HubConnectionBuilder()
-            .WithUrl("http://localhost:9999/jobprogress")
-            .ConfigureLogging(logging =>
-            {
-                logging.SetMinimumLevel(LogLevel.Information);
-                logging.AddConsole();
-            })
-            .Build();
-        }
-
-        private async Task OutputMessage(string message)
-        {
-            if (!hubConnectionStarted)
-            {
-                try
-                {
-                    await connection.StartAsync();
-                    hubConnectionStarted = true;
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine("Failed starting SignalR client: {0}", ex.Message);
-                }
-            }
-
-            if (hubConnectionStarted)
-            {
-                try
-                {
-                    await connection.InvokeAsync("SendJobMessage", JobId, "Robot", message);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine("Failed sending message to SignalR Hub: {0}", ex.Message);
-                }
-            }
+            signalr = new SignalRClientWriter("http://localhost:9999/jobprogress");
         }
 
         public async Task DoProcessAsync(string jobId, CancellationToken cancellationToken)
         {
-            // store the jobId 
-            this.JobId = jobId;
+            // update the jobId for the signalRWriter
+            signalr.JobId = jobId;
 
             // TODO: is this good enough? or should we check the cancellation token in another way?
             // e.g. ThrowIfCancellationRequested() or IsCancellationRequested()
@@ -105,13 +67,13 @@ namespace AccountingServices
                 IMyConfiguration configuration = new MyConfiguration();
 
                 // prepopulate lookup lists
-                await OutputMessage("Prepopulating Lookup Lists ...");
+                await signalr.WriteLineAsync("Prepopulating Lookup Lists ...");
 
-                var stripeTransactions = StripeChargeFactory.Instance.GetLatest(configuration, ForceUpdateYear);
-                await OutputMessage("Successfully read Stripe transactions ...");
+                var stripeTransactions = StripeChargeFactory.Instance.GetLatest(configuration, signalr, ForceUpdateYear);
+                await signalr.WriteLineAsync("Successfully read Stripe transactions ...");
 
-                var paypalTransactions = PayPalFactory.Instance.GetLatest(configuration, ForceUpdateYear);
-                await OutputMessage("Successfully read PayPal transactions ...");
+                var paypalTransactions = PayPalFactory.Instance.GetLatest(configuration, signalr, ForceUpdateYear);
+                await signalr.WriteLineAsync("Successfully read PayPal transactions ...");
 
                 // process the transactions and create accounting overview
                 var customerNames = new List<string>();
@@ -121,12 +83,12 @@ namespace AccountingServices
                 customerNames = customerNames.Distinct().ToList();
 
                 // find latest skandiabanken transaction spreadsheet
-                var sBankenTransactions = SBankenFactory.Instance.GetLatest(configuration, ForceUpdateYear);
+                var sBankenTransactions = SBankenFactory.Instance.GetLatest(configuration, signalr, ForceUpdateYear);
                 var sBankenBankStatement = SBanken.GetBankStatementFromTransactions(sBankenTransactions);
                 if (sBankenBankStatement.Transactions.Count() == 0)
                 {
                     // No transactions read, quitting
-                    await OutputMessage("ERROR! No SBanken transactions read. Quitting!");
+                    await signalr.WriteLineAsync("ERROR! No SBanken transactions read. Quitting!");
                     return;
                 }
                 var accountingBankItems = await ProcessBankAccountStatement(configuration, sBankenBankStatement, customerNames, stripeTransactions, paypalTransactions);
@@ -151,7 +113,7 @@ namespace AccountingServices
                 // if the cache file object has values
                 if (null != lastAccountingFileInfo && !lastAccountingFileInfo.Equals(default(FileDate)))
                 {
-                    await OutputMessage(string.Format("Found an accounting spreadsheet from {0:yyyy-MM-dd}", lastAccountingFileInfo.From));
+                    await signalr.WriteLineAsync(string.Format("Found an accounting spreadsheet from {0:yyyy-MM-dd}", lastAccountingFileInfo.From));
                     await UpdateExcelFile(lastAccountingFileInfo.FilePath, accountingItems);
 
                     // rename spreadsheet to today's date
@@ -165,13 +127,13 @@ namespace AccountingServices
 
                         File.Move(lastAccountingFileInfo.FilePath, filePath);
 
-                        await OutputMessage("Successfully renamed accounting file!");
+                        await signalr.WriteLineAsync("Successfully renamed accounting file!");
                         return;
                     }
                 }
                 else
                 {
-                    await OutputMessage("No existing accounting spreadsheets found - creating ...");
+                    await signalr.WriteLineAsync("No existing accounting spreadsheets found - creating ...");
 
                     var from = date.FirstDayOfTheYear;
                     var to = date.CurrentDate;
@@ -465,7 +427,7 @@ namespace AccountingServices
         private async Task ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doUseSubTotalsAtTop)
         {
             AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true, true, true, doUseSubTotalsAtTop);
-            await OutputMessage("Successfully wrote accounting file to Google Sheets");
+            await signalr.WriteLineAsync("Successfully wrote accounting file to Google Sheets");
         }
 
         private async Task UpdateGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> newAccountingItems, bool doUseSubTotalsAtTop)
@@ -557,7 +519,7 @@ namespace AccountingServices
 
             // delete rows from table
             int deleteRowTotalCount = existingAccountingItemsToDelete.Count();
-            await OutputMessage(string.Format("Deleting {0} rows", deleteRowTotalCount));
+            await signalr.WriteLineAsync(string.Format("Deleting {0} rows", deleteRowTotalCount));
             if (deleteRowTotalCount > 0)
             {
                 using (var googleBatchDeleteRequest = new GoogleSheetsBatchUpdateRequests())
@@ -599,7 +561,7 @@ namespace AccountingServices
             // how many new rows needs to be added
             int newRowTotalCount = newAccountingElements.Count();
             int existingTotalCount = existingAccountingItemsToKeep.Count();
-            await OutputMessage(string.Format("\nAppending {0} rows", newRowTotalCount));
+            await signalr.WriteLineAsync(string.Format("\nAppending {0} rows", newRowTotalCount));
             if (newRowTotalCount > 0)
             {
                 int startRowNumber = 0;
@@ -633,7 +595,7 @@ namespace AccountingServices
                 int endColumnIndex = dtToInsert.Columns.Count + 1;
                 InsertDataTable(googleSheetsFactory, dtToInsert, false, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex, true, true, true);
 
-                await OutputMessage("Successfully updated accounting file!");
+                await signalr.WriteLineAsync("Successfully updated accounting file!");
             }
         }
         #endregion
@@ -712,7 +674,7 @@ namespace AccountingServices
                 //ws.Rows().AdjustToContents();     // Adjust row heights
 
                 wb.SaveAs(filePath);
-                await OutputMessage(string.Format("Successfully wrote accounting file to {0}", filePath));
+                await signalr.WriteLineAsync(string.Format("Successfully wrote accounting file to {0}", filePath));
             }
         }
 
@@ -812,17 +774,17 @@ namespace AccountingServices
                 // delete rows from table
                 int deleteRowCounter = 0;
                 int deleteRowTotalCount = existingAccountingItemsToDelete.Count();
-                await OutputMessage(string.Format("Deleting {0} rows", deleteRowTotalCount));
+                await signalr.WriteLineAsync(string.Format("Deleting {0} rows", deleteRowTotalCount));
                 foreach (var deleteRow in existingAccountingItemsToDelete)
                 {
                     deleteRowCounter++;
-                    await OutputMessage(string.Format("\rDeleting row {0}/{1} ({2})", deleteRowCounter, deleteRowTotalCount, deleteRow.Key.RangeAddress));
+                    await signalr.WriteAsync(string.Format("\rDeleting row {0}/{1} ({2})", deleteRowCounter, deleteRowTotalCount, deleteRow.Key.RangeAddress));
                     deleteRow.Key.Delete(XLShiftDeletedCells.ShiftCellsUp);
                 }
 
                 // how many new rows needs to be added
                 int newRowTotalCount = newAccountingElements.Count();
-                await OutputMessage(string.Format("\nAppending {0} rows", newRowTotalCount));
+                await signalr.WriteLineAsync(string.Format("\nAppending {0} rows", newRowTotalCount));
                 if (newRowTotalCount > 0)
                 {
                     // turn off totals row before adding more rows
@@ -907,7 +869,7 @@ namespace AccountingServices
                 }
                 else
                 {
-                    await OutputMessage("Nothing to update! Quitting.");
+                    await signalr.WriteLineAsync("Nothing to update! Quitting.");
                     return;
                 }
             }
@@ -917,7 +879,7 @@ namespace AccountingServices
             //ws.Rows().AdjustToContents();     // Adjust row heights
 
             wb.Save();
-            await OutputMessage("Successfully updated accounting file!");
+            await signalr.WriteLineAsync("Successfully updated accounting file!");
         }
 
         private async Task UpdateExcelFileWithTransactionsIds(string filePath, List<AccountingItem> newAccountingItems)
@@ -1009,11 +971,11 @@ namespace AccountingServices
 
                 int updateRowCounter = 0;
                 int updateRowTotalCount = existingAccountingItemsToUpdate.Count();
-                await OutputMessage(string.Format("Updating {0} rows", updateRowTotalCount));
+                await signalr.WriteLineAsync(string.Format("Updating {0} rows", updateRowTotalCount));
                 foreach (var updateRow in existingAccountingItemsToUpdate)
                 {
                     updateRowCounter++;
-                    await OutputMessage(string.Format("\rUpdating row {0}/{1} ({2})", updateRowCounter, updateRowTotalCount, updateRow.Key.RangeAddress));
+                    await signalr.WriteAsync(string.Format("\rUpdating row {0}/{1} ({2})", updateRowCounter, updateRowTotalCount, updateRow.Key.RangeAddress));
 
                     // find match
                     var result = (from a in newAccountingItems
@@ -1028,7 +990,7 @@ namespace AccountingServices
                         if (result.Count() > 1)
                         {
                             // error
-                            await OutputMessage(string.Format("\rFailed finding only single matching accounting entries to update from {0} ...", updateRow.Key.RangeAddress));
+                            await signalr.WriteAsync(string.Format("\rFailed finding only single matching accounting entries to update from {0} ...", updateRow.Key.RangeAddress));
                             return;
                         }
                         else
@@ -1041,7 +1003,7 @@ namespace AccountingServices
                     else
                     {
                         // error, none found
-                        await OutputMessage(string.Format("\rFailed finding matching accounting entry to update from {0} ...", updateRow.Key.RangeAddress));
+                        await signalr.WriteAsync(string.Format("\rFailed finding matching accounting entry to update from {0} ...", updateRow.Key.RangeAddress));
                     }
                 }
             }
@@ -1051,7 +1013,7 @@ namespace AccountingServices
             //ws.Rows().AdjustToContents();     // Adjust row heights
 
             wb.Save();
-            await OutputMessage("\rSuccessfully updated accounting file!");
+            await signalr.WriteLineAsync("\rSuccessfully updated accounting file!");
         }
 
         static void SetExcelRowFormulas(IXLRangeRow row)
@@ -1391,8 +1353,8 @@ namespace AccountingServices
             var to = date.CurrentDate;
 
             // prepopulate some lookup lists
-            var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, ForceUpdateYear);
-            await OutputMessage("Successfully read Stripe payout transactions ...");
+            var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, signalr, ForceUpdateYear);
+            await signalr.WriteLineAsync("Successfully read Stripe payout transactions ...");
 
             // check if we are processing aliexpress
             var oberloOrders = new List<OberloOrder>();
@@ -1400,10 +1362,10 @@ namespace AccountingServices
             if (ProcessAliExpress)
             {
                 // process oberlo
-                oberloOrders = OberloFactory.Instance.GetLatest(configuration);
+                oberloOrders = OberloFactory.Instance.GetLatest(configuration, signalr);
 
                 // and then ali express
-                var aliExpressOrders = AliExpressFactory.Instance.GetLatest(configuration);
+                var aliExpressOrders = AliExpressFactory.Instance.GetLatest(configuration, signalr);
                 aliExpressOrderGroups = AliExpress.CombineOrders(aliExpressOrders);
             }
 
@@ -1452,7 +1414,7 @@ namespace AccountingServices
                     accountingType == SBankenTransaction.AccountingTypeEnum.IncomeReturn))
                 {
 
-                    await OutputMessage(string.Format("{0}", skandiabankenTransaction));
+                    await signalr.WriteLineAsync(string.Format("{0}", skandiabankenTransaction));
                     accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1} {2} {3:C} (Kurs: {4})", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor, skandiabankenTransaction.ExternalPurchaseAmount, skandiabankenTransaction.ExternalPurchaseCurrency, skandiabankenTransaction.ExternalPurchaseExchangeRate);
                     accountingItem.PurchaseOtherCurrency = skandiabankenTransaction.ExternalPurchaseAmount;
                     accountingItem.OtherCurrency = skandiabankenTransaction.ExternalPurchaseCurrency.ToUpper();
@@ -1475,7 +1437,7 @@ namespace AccountingServices
                 else if (skandiabankenTransaction.Type.Equals("VISA VARE") &&
                     accountingType == SBankenTransaction.AccountingTypeEnum.CostOfGoods)
                 {
-                    await OutputMessage(string.Format("{0}", skandiabankenTransaction));
+                    await signalr.WriteLineAsync(string.Format("{0}", skandiabankenTransaction));
                     accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1} {2} {3:C} (Kurs: {4})", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor, skandiabankenTransaction.ExternalPurchaseAmount, skandiabankenTransaction.ExternalPurchaseCurrency, skandiabankenTransaction.ExternalPurchaseExchangeRate);
                     accountingItem.PurchaseOtherCurrency = skandiabankenTransaction.ExternalPurchaseAmount;
                     accountingItem.OtherCurrency = skandiabankenTransaction.ExternalPurchaseCurrency.ToUpper();
@@ -1491,7 +1453,7 @@ namespace AccountingServices
                 // 2. Transfer Paypal
                 else if (accountingType == SBankenTransaction.AccountingTypeEnum.TransferPaypal)
                 {
-                    await OutputMessage(string.Format("{0}", skandiabankenTransaction));
+                    await signalr.WriteLineAsync(string.Format("{0}", skandiabankenTransaction));
                     accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1}", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor);
                     accountingItem.Gateway = "paypal";
 
@@ -1516,7 +1478,7 @@ namespace AccountingServices
                     if (paypalQuery.Count() > 1)
                     {
                         // more than one transaction found ?!
-                        await OutputMessage("ERROR: FOUND MORE THAN ONE PAYPAL PAYOUT!");
+                        await signalr.WriteLineAsync("ERROR: FOUND MORE THAN ONE PAYPAL PAYOUT!");
                         accountingItem.Message = "Paypal: More than one payout found, choose one";
                     }
                     else if (paypalQuery.Count() > 0)
@@ -1529,7 +1491,7 @@ namespace AccountingServices
                     }
                     else
                     {
-                        await OutputMessage(string.Format("ERROR: NO PAYPAL PAYOUTS FOR {0:C} FOUND BETWEEN {1:dd.MM.yyyy} and {2:dd.MM.yyyy}!", skandiabankenTransaction.AccountChange, startDate, endDate));
+                        await signalr.WriteLineAsync(string.Format("ERROR: NO PAYPAL PAYOUTS FOR {0:C} FOUND BETWEEN {1:dd.MM.yyyy} and {2:dd.MM.yyyy}!", skandiabankenTransaction.AccountChange, startDate, endDate));
                         accountingItem.Message = "Paypal: No payouts found";
                     }
                 }
@@ -1537,7 +1499,7 @@ namespace AccountingServices
                 // 3. Transfer Stripe
                 else if (accountingType == SBankenTransaction.AccountingTypeEnum.TransferStripe)
                 {
-                    await OutputMessage(string.Format("{0}", skandiabankenTransaction));
+                    await signalr.WriteLineAsync(string.Format("{0}", skandiabankenTransaction));
                     accountingItem.Text = string.Format(no, "{0:dd.MM.yyyy} {1}", skandiabankenTransaction.ExternalPurchaseDate, skandiabankenTransaction.ExternalPurchaseVendor);
                     accountingItem.Gateway = "stripe";
 
@@ -1559,7 +1521,7 @@ namespace AccountingServices
 
                     if (stripeQuery.Count() > 1)
                     {
-                        await OutputMessage("\tSEVERAL MATCHING STRIPE PAYOUTS FOUND ...");
+                        await signalr.WriteLineAsync("\tSEVERAL MATCHING STRIPE PAYOUTS FOUND ...");
 
                         bool notFound = true;
                         foreach (var item in stripeQuery.Reverse())
@@ -1570,14 +1532,14 @@ namespace AccountingServices
                                 notFound = false;
                                 usedStripePayoutTransactionIDs.Add(stripePayoutTransactionID);
                                 accountingItem.TransactionID = stripePayoutTransactionID;
-                                await OutputMessage(string.Format("\tSELECTED: {0} {1}", accountingItem.TransactionID, accountingItem.Text));
+                                await signalr.WriteLineAsync(string.Format("\tSELECTED: {0} {1}", accountingItem.TransactionID, accountingItem.Text));
                                 break;
                             }
                         }
 
                         if (notFound)
                         {
-                            await OutputMessage("ERROR: COULD NOT FIND MATCHING STRIPE PAYOUT!");
+                            await signalr.WriteLineAsync("ERROR: COULD NOT FIND MATCHING STRIPE PAYOUT!");
                             accountingItem.Message = "Stripe: Could not find matching payout";
                         }
                     }
@@ -1591,14 +1553,14 @@ namespace AccountingServices
                     }
                     else
                     {
-                        await OutputMessage(string.Format("ERROR: NO STRIPE PAYOUT FOR {0:C} FOUND BETWEEN {1:dd.MM.yyyy} and {2:dd.MM.yyyy}!", skandiabankenTransaction.AccountChange, startDate, endDate));
+                        await signalr.WriteLineAsync(string.Format("ERROR: NO STRIPE PAYOUT FOR {0:C} FOUND BETWEEN {1:dd.MM.yyyy} and {2:dd.MM.yyyy}!", skandiabankenTransaction.AccountChange, startDate, endDate));
                         accountingItem.Message = "Stripe: No payouts found";
                     }
                 }
 
                 else if (customerNames.Contains(skandiabankenTransaction.Text))
                 {
-                    await OutputMessage(string.Format("{0}", skandiabankenTransaction));
+                    await signalr.WriteLineAsync(string.Format("{0}", skandiabankenTransaction));
                     accountingItem.Text = string.Format(no, "{0}", skandiabankenTransaction.Text);
                     accountingItem.Gateway = "vipps";
                     accountingItem.AccountingType = "OVERFØRSEL VIPPS";
@@ -1609,7 +1571,7 @@ namespace AccountingServices
                 // 4. None of those above
                 else
                 {
-                    await OutputMessage(string.Format("{0}", skandiabankenTransaction));
+                    await signalr.WriteLineAsync(string.Format("{0}", skandiabankenTransaction));
 
                     // if the text contains an USD pattern, use it
                     Regex usdPattern = new Regex(@"USD\s+(\d+(\.\d+)?)", RegexOptions.Compiled);
@@ -1678,9 +1640,9 @@ namespace AccountingServices
             var to = date.CurrentDate;
             string querySuffix = string.Format(CultureInfo.InvariantCulture, "status=any&created_at_min={0:yyyy-MM-ddTHH:mm:sszzz}&created_at_max={1:yyyy-MM-ddTHH:mm:sszzz}", from, to);
             var shopifyOrders = Shopify.ReadShopifyOrders(shopifyDomain, shopifyAPIKey, shopifyAPIPassword, querySuffix);
-            await OutputMessage("Successfully read all Shopify orders ...");
+            await signalr.WriteLineAsync("Successfully read all Shopify orders ...");
 
-            await OutputMessage("Processing Shopify orders started ...");
+            await signalr.WriteLineAsync("Processing Shopify orders started ...");
             foreach (var shopifyOrder in shopifyOrders)
             {
                 // skip, not paid (pending), cancelled (voided) and fully refunded orders (refunded)
@@ -1745,7 +1707,7 @@ namespace AccountingServices
                         if (stripeQuery.Count() > 1)
                         {
                             // more than one ?!
-                            await OutputMessage("ERROR: FOUND MORE THAN ONE MATCHING STRIPE TRANSACTION!");
+                            await signalr.WriteLineAsync("ERROR: FOUND MORE THAN ONE MATCHING STRIPE TRANSACTION!");
                             accountingItem.Message = "Stripe: More than one found, choose one";
                         }
                         else if (stripeQuery.Count() > 0)
@@ -1764,7 +1726,7 @@ namespace AccountingServices
                         }
                         else
                         {
-                            await OutputMessage(string.Format("ERROR: NO STRIPE TRANSACTIONS FOR {0:C} FOUND FOR {1} {2} BETWEEN {3:dd.MM.yyyy} and {4:dd.MM.yyyy}!", shopifyOrder.TotalPrice, shopifyOrder.Name, shopifyOrder.CustomerName, startDate, endDate));
+                            await signalr.WriteLineAsync(string.Format("ERROR: NO STRIPE TRANSACTIONS FOR {0:C} FOUND FOR {1} {2} BETWEEN {3:dd.MM.yyyy} and {4:dd.MM.yyyy}!", shopifyOrder.TotalPrice, shopifyOrder.Name, shopifyOrder.CustomerName, startDate, endDate));
                             accountingItem.Message = "Stripe: No transactions found";
                         }
 
@@ -1796,7 +1758,7 @@ namespace AccountingServices
                         if (paypalQuery.Count() > 1)
                         {
                             // more than one ?!
-                            await OutputMessage("ERROR: FOUND MORE THAN ONE PAYPAL TRANSACTION!");
+                            await signalr.WriteLineAsync("ERROR: FOUND MORE THAN ONE PAYPAL TRANSACTION!");
                             accountingItem.Message = "Paypal: More than one found, choose one";
                         }
                         else if (paypalQuery.Count() > 0)
@@ -1815,7 +1777,7 @@ namespace AccountingServices
                         }
                         else
                         {
-                            await OutputMessage(string.Format("ERROR: NO PAYPAL TRANSACTIONS FOR {0:C} FOUND FOR {1} {2} BETWEEN {3:dd.MM.yyyy} and {4:dd.MM.yyyy}!", shopifyOrder.TotalPrice, shopifyOrder.Name, shopifyOrder.CustomerName, startDate, endDate));
+                            await signalr.WriteLineAsync(string.Format("ERROR: NO PAYPAL TRANSACTIONS FOR {0:C} FOUND FOR {1} {2} BETWEEN {3:dd.MM.yyyy} and {4:dd.MM.yyyy}!", shopifyOrder.TotalPrice, shopifyOrder.Name, shopifyOrder.CustomerName, startDate, endDate));
                             accountingItem.Message = "Paypal: No transactions found";
                         }
 
@@ -1895,7 +1857,7 @@ namespace AccountingServices
             else
             {
                 // could not find shopify order numbers
-                await OutputMessage("\tERROR: NO SHOPIFY ORDERS FOUND!");
+                await signalr.WriteLineAsync("\tERROR: NO SHOPIFY ORDERS FOUND!");
                 accountingItem.Message = "Shopify: No orders found";
                 accountingItem.NumPurchase = "NOT FOUND";
             }
@@ -1914,7 +1876,7 @@ namespace AccountingServices
 
             if (joined.Count() > 0)
             {
-                await OutputMessage("\tSHOPIFY ORDERS FOUND ...");
+                await signalr.WriteLineAsync("\tSHOPIFY ORDERS FOUND ...");
 
                 string orderNumber = "NONE FOUND";
                 foreach (var item in joined.Reverse())
@@ -1925,7 +1887,7 @@ namespace AccountingServices
                         usedOrderNumbers.Add(orderNumber);
                         accountingItem.NumPurchase = orderNumber;
                         accountingItem.CustomerName = item.Oberlo.CustomerName;
-                        await OutputMessage(string.Format("\tSELECTED: {0} {1}", accountingItem.NumPurchase, accountingItem.CustomerName));
+                        await signalr.WriteLineAsync(string.Format("\tSELECTED: {0} {1}", accountingItem.NumPurchase, accountingItem.CustomerName));
                         break;
                     }
                 }
@@ -1934,7 +1896,7 @@ namespace AccountingServices
             // could not find shopify order numbers
             else
             {
-                await OutputMessage("\tERROR: NO OBERLO ORDERS FOUND!");
+                await signalr.WriteLineAsync("\tERROR: NO OBERLO ORDERS FOUND!");
                 var orderIds = string.Join(", ", Array.ConvertAll(aliExpressOrderList.ToArray(), i => i.OrderId));
                 var orderCustomers = string.Join(", ", Array.ConvertAll(aliExpressOrderList.ToArray(), i => i.ContactName));
                 accountingItem.Message = string.Format("Oberlo: No shopify order found for order {0} ({1})", orderIds, orderCustomers);

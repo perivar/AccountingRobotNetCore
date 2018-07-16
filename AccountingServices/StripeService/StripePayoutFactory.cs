@@ -1,7 +1,8 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
-using System.Linq;
 using AccountingServices.Helpers;
 
 namespace AccountingServices.StripeService
@@ -24,11 +25,11 @@ namespace AccountingServices.StripeService
             }
         }
 
-        public override List<StripeTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, FileDate lastCacheFileInfo, DateTime from, DateTime to)
+        public override List<StripeTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
         {
             // we have to combine two files:
             // the original cache file and the new transactions file
-            Console.Out.WriteLine("Finding Stripe payout transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding Stripe payout transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             var newStripePayoutTransactions = Stripe.GetStripePayoutTransactions(configuration, from, to);
             var originalStripePayoutTransactions = Utils.ReadCacheFile<StripeTransaction>(lastCacheFileInfo.FilePath);
 
@@ -42,9 +43,9 @@ namespace AccountingServices.StripeService
             return updatedStripePayoutTransactions;
         }
 
-        public override List<StripeTransaction> GetList(IMyConfiguration configuration, DateTime from, DateTime to)
+        public override List<StripeTransaction> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            Console.Out.WriteLine("Finding Stripe payout transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding Stripe payout transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             return Stripe.GetStripePayoutTransactions(configuration, from, to);
         }
     }

@@ -1,7 +1,8 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
-using System.Linq;
 using AccountingServices.Helpers;
 
 namespace AccountingServices.PayPalService
@@ -24,11 +25,11 @@ namespace AccountingServices.PayPalService
             }
         }
 
-        public override List<PayPalTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, FileDate lastCacheFileInfo, DateTime from, DateTime to)
+        public override List<PayPalTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
         {
             // we have to combine two files:
             // the original cache file and the new transactions file
-            Console.Out.WriteLine("Finding PayPal transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding PayPal transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             var newPayPalTransactions = PayPal.GetPayPalTransactions(configuration, from, to);
             var originalPayPalTransactions = Utils.ReadCacheFile<PayPalTransaction>(lastCacheFileInfo.FilePath);
 
@@ -42,9 +43,9 @@ namespace AccountingServices.PayPalService
             return updatedPayPalTransactions;
         }
 
-        public override List<PayPalTransaction> GetList(IMyConfiguration configuration, DateTime from, DateTime to)
+        public override List<PayPalTransaction> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            Console.Out.WriteLine("Finding PayPal transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding PayPal transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             return PayPal.GetPayPalTransactions(configuration, from, to);
         }
     }

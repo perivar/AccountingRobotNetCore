@@ -1,7 +1,8 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
-using System.Linq;
 using AccountingServices.Helpers;
 
 namespace AccountingServices.AliExpressService
@@ -23,11 +24,11 @@ namespace AccountingServices.AliExpressService
             }
         }
 
-        public override List<AliExpressOrder> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, FileDate lastCacheFileInfo, DateTime from, DateTime to)
+        public override List<AliExpressOrder> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
         {        
             // we have to combine two files:
             // the original cache file and the new transactions file
-            Console.Out.WriteLine("Finding AliExpress Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding AliExpress Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             var newAliExpressOrders = AliExpress.ScrapeAliExpressOrders(configuration, from);
             var originalAliExpressOrders = Utils.ReadCacheFile<AliExpressOrder>(lastCacheFileInfo.FilePath);
 
@@ -41,9 +42,9 @@ namespace AccountingServices.AliExpressService
             return updatedAliExpressOrders;
         }
 
-        public override List<AliExpressOrder> GetList(IMyConfiguration configuration, DateTime from, DateTime to)
+        public override List<AliExpressOrder> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            Console.Out.WriteLine("Finding AliExpress Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            writer.WriteLine("Finding AliExpress Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
             return AliExpress.ScrapeAliExpressOrders(configuration, from);
         }
     }
