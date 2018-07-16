@@ -27,6 +27,7 @@ namespace AccountingWebClient
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // enable cookie authentication defaults
             services.AddAuthentication(options =>
             {
                 options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -34,6 +35,7 @@ namespace AccountingWebClient
                 options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             }).AddCookie(options => { options.LoginPath = "/Home/Login"; });
 
+            // ensure the logon page is anonymous
             services.AddMvc()
             .AddRazorPagesOptions(options =>
             {
@@ -81,6 +83,7 @@ namespace AccountingWebClient
             // IMPORTANT: This session call MUST go before UseMvc()
             app.UseSession();
 
+            // add signalr hub url
             app.UseSignalR(routes =>
             {
                 routes.MapHub<JobProgressHub>("/jobprogress");

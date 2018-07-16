@@ -15,5 +15,10 @@ namespace AccountingWebClient.Hubs
         {
             await Clients.All.SendAsync("ReceiveMessage", user, message);
         }
+
+        public async Task SendJobMessage(string jobId, string user, string message)
+        {
+            await Clients.Group(jobId).SendAsync("ReceiveMessage", user, message);
+        }
     }
 }

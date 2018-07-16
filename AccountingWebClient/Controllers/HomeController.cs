@@ -15,6 +15,7 @@ using Microsoft.Extensions.Configuration;
 using AccountingWebClient.Models;
 using AccountingWebClient.Hubs;
 using AccountingServices;
+using System.Threading;
 
 namespace AccountingWebClient.Controllers
 {
@@ -116,18 +117,20 @@ namespace AccountingWebClient.Controllers
         {
             string jobId = Guid.NewGuid().ToString("N");
 
-            Queue.QueueBackgroundWorkItem(async cancellationToken =>
-                {
-                    _logger.LogInformation(
-                        $"Queued Background Task {jobId} is running.");
-
-                    await _accountingRobot.DoProcessAsync(cancellationToken);
-
-                    _logger.LogInformation(
-                        $"Queued Background Task {jobId} is complete.");
-                });
+            Queue.QueueBackgroundWorkItem(cancellationToken => PerformBackgroundJob(jobId, cancellationToken));
 
             return RedirectToAction("Progress", new { jobId });
+        }
+
+        private async Task PerformBackgroundJob(string jobId, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation(
+                $"Queued Background Task {jobId} is running.");
+
+            await _accountingRobot.DoProcessAsync(jobId, cancellationToken);
+
+            _logger.LogInformation(
+                $"Queued Background Task {jobId} is complete.");
         }
 
         public IActionResult Progress(string jobId)

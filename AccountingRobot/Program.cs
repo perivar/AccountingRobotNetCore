@@ -10,7 +10,9 @@ namespace AccountingRobotCLI
         {
             var accountingRobot = new AccountingRobot();
             var s = new CancellationTokenSource();
-            accountingRobot.DoProcessAsync(s.Token).GetAwaiter();
+            string jobId = Guid.NewGuid().ToString("N");
+
+            accountingRobot.DoProcessAsync(jobId, s.Token).GetAwaiter();
         }
     }
 }

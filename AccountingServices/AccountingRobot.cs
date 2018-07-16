@@ -36,6 +36,7 @@ namespace AccountingServices
         public bool ProcessAliExpress { get; set; }
         public bool ForceUpdateYear { get; set; }
         public bool UseExcel { get; set; }
+        public string JobId { get; set; }
 
         HubConnection connection;
         bool hubConnectionStarted = false;
@@ -80,7 +81,7 @@ namespace AccountingServices
             {
                 try
                 {
-                    await connection.InvokeAsync("SendMessage", "Robot", message);
+                    await connection.InvokeAsync("SendJobMessage", JobId, "Robot", message);
                 }
                 catch (Exception ex)
                 {
@@ -89,9 +90,12 @@ namespace AccountingServices
             }
         }
 
-        public async Task DoProcessAsync(CancellationToken cancellationToken)
+        public async Task DoProcessAsync(string jobId, CancellationToken cancellationToken)
         {
-            // TODO: care about the cancellationtoken:
+            // store the jobId 
+            this.JobId = jobId;
+
+            // TODO: is this good enough? or should we check the cancellation token in another way?
             // e.g. ThrowIfCancellationRequested() or IsCancellationRequested()
             while (!cancellationToken.IsCancellationRequested)
             {
