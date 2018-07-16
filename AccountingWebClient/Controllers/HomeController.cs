@@ -16,6 +16,7 @@ using AccountingWebClient.Models;
 using AccountingWebClient.Hubs;
 using AccountingServices;
 using System.Threading;
+using Microsoft.AspNetCore.Http.Extensions;
 
 namespace AccountingWebClient.Controllers
 {
@@ -23,6 +24,7 @@ namespace AccountingWebClient.Controllers
     {
         // dependency injected in Startup.cs
         public IBackgroundTaskQueue Queue { get; }
+        private readonly IHostingEnvironment _hostingEnvironment;
         private readonly IApplicationLifetime _appLifetime;
         private readonly ILogger<HomeController> _logger;
         private readonly IConfiguration _appConfig;
@@ -31,6 +33,7 @@ namespace AccountingWebClient.Controllers
 
 
         public HomeController(IBackgroundTaskQueue queue,
+            IHostingEnvironment hostingEnvironment,
             IApplicationLifetime appLifetime,
             ILogger<HomeController> logger,
             IConfiguration configuration,
@@ -38,6 +41,7 @@ namespace AccountingWebClient.Controllers
             AccountingRobot accountingRobot)
         {
             Queue = queue;
+            _hostingEnvironment = hostingEnvironment;
             _appLifetime = appLifetime;
             _logger = logger;
             _appConfig = configuration;
@@ -115,7 +119,12 @@ namespace AccountingWebClient.Controllers
         [Authorize]
         public IActionResult StartProgress()
         {
+            // get the server scheme, host and port and build the url to the SignalR Hub
+            var signalRHubUrl = $"{Request.Scheme}://{Request.Host.Value}/jobprogress"; // http://localhost:9999/jobprogress
+
+            // use a signalr client as writer
             string jobId = Guid.NewGuid().ToString("N");
+            _accountingRobot.Writer = new SignalRClientWriter(signalRHubUrl, jobId);
 
             Queue.QueueBackgroundWorkItem(cancellationToken => PerformBackgroundJob(jobId, cancellationToken));
 
@@ -127,7 +136,7 @@ namespace AccountingWebClient.Controllers
             _logger.LogInformation(
                 $"Queued Background Task {jobId} is running.");
 
-            await _accountingRobot.DoProcessAsync(jobId, cancellationToken);
+            await _accountingRobot.DoProcessAsync(cancellationToken);
 
             _logger.LogInformation(
                 $"Queued Background Task {jobId} is complete.");

@@ -16,7 +16,6 @@ namespace AccountingServices
 
         public SignalRClientWriter(string url) : this(url, null)
         {
-
         }
 
         public SignalRClientWriter(string url, string jobId)
@@ -35,6 +34,7 @@ namespace AccountingServices
             })
             .Build();
 
+            // open connection
             CheckOrOpenConnection().GetAwaiter();
         }
 
@@ -64,6 +64,7 @@ namespace AccountingServices
 
         public override async Task FlushAsync()
         {
+            // do nothing
         }
 
         public override void Write(string value)
