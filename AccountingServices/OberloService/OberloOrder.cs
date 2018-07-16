@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Globalization;
 
-namespace AccountingServices.Oberlo
+namespace AccountingServices.OberloService
 {
     public class OberloOrder
     {

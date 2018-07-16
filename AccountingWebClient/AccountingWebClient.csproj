@@ -1,23 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <UserSecretsId>wazalo-account-services</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.8"/>
-    <PackageReference Include="BuildBundlerMinifier" Version="2.8.391"/>
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.0.2"/>
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.0.2"/>
-    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="2.0.2"/>
-    <PackageReference Include="Microsoft.AspNetCore.Session" Version="2.0.3"/>
+    <PackageReference Include="Microsoft.AspNetCore.App" Version="2.1.2"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.1.1"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.1.1"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="2.1.1"/>
+    <PackageReference Include="Microsoft.AspNetCore.Session" Version="2.1.1"/>
     <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.0.2"/>
+    <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="2.1.1" PrivateAssets="All" />
+    <PackageReference Include="BuildBundlerMinifier" Version="2.8.391"/>
   </ItemGroup>
   <ItemGroup>
-    <DotNetCliToolReference Include="Microsoft.Extensions.SecretManager.Tools" Version="2.0.2"/>
-  </ItemGroup>
-  <ItemGroup>
-    <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.4"/>
-  </ItemGroup>
+    <None Update="google_client_secret.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>     
   <ItemGroup>
     <ProjectReference Include="..\AccountingServices\AccountingServices.csproj"/>
     <ProjectReference Include="..\AccountingRobot\AccountingRobot.csproj"/>

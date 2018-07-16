@@ -5,8 +5,6 @@ VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccountingRobot", "AccountingRobot\AccountingRobot.csproj", "{95712C04-6807-4507-99E4-798C0B64929F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VerifyTool", "VerifyTool\VerifyTool.csproj", "{A9599B56-A418-4670-BF06-DEEAE9253974}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccountingServices", "AccountingServices\AccountingServices.csproj", "{AD5D852F-6ED5-4671-9B42-0A878B68BD54}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccountingTest", "AccountingTest\AccountingTest.csproj", "{8DA8A379-CD2C-48A9-BC77-0FB58DF95BFA}"

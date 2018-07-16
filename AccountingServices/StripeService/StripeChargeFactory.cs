@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using System.Linq;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.Stripe
+namespace AccountingServices.StripeService
 {
     public class StripeChargeFactory : CachedList<StripeTransaction>
     {

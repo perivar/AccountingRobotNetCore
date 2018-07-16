@@ -73,7 +73,7 @@ namespace AccountingServices.Excel
                 var item = row.Field(fieldName);
                 if (item.HasFormula)
                 {
-                    value = item.ValueCached;
+                    value = item.CachedValue;
                 }
                 else
                 {

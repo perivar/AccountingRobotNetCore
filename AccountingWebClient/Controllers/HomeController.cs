@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using AccountingWebClient.Models;
 using AccountingWebClient.Hubs;
+using AccountingServices;
 
 namespace AccountingWebClient.Controllers
 {
@@ -26,13 +27,16 @@ namespace AccountingWebClient.Controllers
         private readonly IConfiguration _appConfig;
         private readonly IHubContext<JobProgressHub> _hubContext;
         private readonly RandomStringProvider _randomStringProvider;
+        private readonly AccountingRobot _accountingRobot;
+
 
         public HomeController(IBackgroundTaskQueue queue,
             IApplicationLifetime appLifetime,
             ILogger<HomeController> logger,
             IConfiguration configuration,
             IHubContext<JobProgressHub> hubContext,
-            RandomStringProvider randomStringProvider)
+            RandomStringProvider randomStringProvider,
+            AccountingRobot accountingRobot)
         {
             Queue = queue;
             _appLifetime = appLifetime;
@@ -40,6 +44,7 @@ namespace AccountingWebClient.Controllers
             _appConfig = configuration;
             _hubContext = hubContext;
             _randomStringProvider = randomStringProvider;
+            _accountingRobot = accountingRobot;
         }
 
         [AllowAnonymous]
@@ -89,10 +94,6 @@ namespace AccountingWebClient.Controllers
         [Authorize]
         public IActionResult Process()
         {
-            AccountingRobot.Program.Process();
-
-            ViewData["Message"] = "Accounting Spreadsheet Updated";
-
             return View("Index");
         }
 
@@ -128,18 +129,10 @@ namespace AccountingWebClient.Controllers
                     _logger.LogInformation(
                         $"Queued Background Task {jobId} is running.");
 
-
-                    for (int delayLoop = 0; delayLoop < 10; delayLoop++)
-                    {
-                        _logger.LogInformation(
-                            $"Queued Background Task {jobId} is running. {delayLoop}/10");
-
-                        await _randomStringProvider.UpdateString(cancellationToken);
-                        await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-                    }
+                    await _accountingRobot.DoProcessAsync(cancellationToken);
 
                     _logger.LogInformation(
-                        $"Queued Background Task {jobId} is complete. 10/10");
+                        $"Queued Background Task {jobId} is complete.");
                 });
 
             return RedirectToAction("Progress", new { jobId });

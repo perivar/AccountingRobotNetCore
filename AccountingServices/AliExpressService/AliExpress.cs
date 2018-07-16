@@ -13,7 +13,7 @@ using OpenQA.Selenium.Remote;
 using SeleniumExtras.WaitHelpers;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.AliExpress
+namespace AccountingServices.AliExpressService
 {
     public static class AliExpress
     {

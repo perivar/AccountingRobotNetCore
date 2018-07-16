@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AccountingServices.Stripe
+namespace AccountingServices.StripeService
 {
     public class StripeTransaction
     {

@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using AccountingServices.Excel;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.SBanken
+namespace AccountingServices.SBankenService
 {
     public class SBankenTransaction
     {

@@ -17,7 +17,7 @@ using PayPal.Api;
 
 namespace AccountingServices.PayPalService
 {
-    public static class Paypal
+    public static class PayPal
     {
         public static List<PayPalTransaction> GetPayPalTransactions(IMyConfiguration configuration, DateTime from, DateTime to)
         {
@@ -169,13 +169,13 @@ namespace AccountingServices.PayPalService
             string payPalClientSecret = configuration.GetValue("PayPalClientSecret");
 
             var config = new Dictionary<string, string>();
-            config.Add("mode", PayPal.Api.BaseConstants.LiveMode);
+            config.Add("mode", global::PayPal.Api.BaseConstants.LiveMode);
             config.Add("clientId", payPalClientId);
             config.Add("clientSecret", payPalClientSecret);
-            config[PayPal.Api.BaseConstants.HttpConnectionTimeoutConfig] = "30000";
-            config[PayPal.Api.BaseConstants.HttpConnectionRetryConfig] = "3";
+            config[global::PayPal.Api.BaseConstants.HttpConnectionTimeoutConfig] = "30000";
+            config[global::PayPal.Api.BaseConstants.HttpConnectionRetryConfig] = "3";
 
-            string accessToken = new PayPal.Api.OAuthTokenCredential(config).GetAccessToken();
+            string accessToken = new global::PayPal.Api.OAuthTokenCredential(config).GetAccessToken();
 
             //var apiContext = new PayPal.Api.APIContext(accessToken) { Config = config };
             //var payments = PayPal.Api.Payment.List(apiContext, null, "", null, "", "", DateTime.Now.AddDays(-25).ToString(), DateTime.Now.ToString());

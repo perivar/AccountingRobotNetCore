@@ -5,10 +5,13 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using AccountingWebClient.Hubs;
+using AccountingServices;
 
 namespace AccountingWebClient
 {
@@ -31,11 +34,13 @@ namespace AccountingWebClient
                 options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             }).AddCookie(options => { options.LoginPath = "/Home/Login"; });
 
-            services.AddMvc().AddRazorPagesOptions(options =>
+            services.AddMvc()
+            .AddRazorPagesOptions(options =>
             {
                 options.Conventions.AuthorizeFolder("/");
                 options.Conventions.AllowAnonymousToPage("/Home/Login");
-            });
+            })
+            .SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
 
             // Adds a default in-memory implementation of IDistributedCache.
             services.AddDistributedMemoryCache();
@@ -47,8 +52,8 @@ namespace AccountingWebClient
             services.AddSignalR();
 
             // Enable the background services
-            services.AddSingleton<RandomStringProvider>();
-            // services.AddSingleton<IHostedService, DataRefreshService>();
+            services.AddSingleton<AccountingRobot>();
+            // services.AddSingleton<RandomStringProvider>();
             services.AddHostedService<QueuedHostedService>();
             services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
         }
@@ -63,7 +68,10 @@ namespace AccountingWebClient
             else
             {
                 app.UseExceptionHandler("/Home/Error");
+                app.UseHsts();
             }
+
+            // app.UseHttpsRedirection();
 
             // serve static files in the wwwroot folder
             app.UseStaticFiles();

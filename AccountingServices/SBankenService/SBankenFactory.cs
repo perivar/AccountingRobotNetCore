@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 using System.Text.RegularExpressions;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.SBanken
+namespace AccountingServices.SBankenService
 {
     public class SBankenFactory : CachedList<SBankenTransaction>
     {

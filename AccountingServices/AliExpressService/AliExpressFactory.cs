@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using System.Linq;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.AliExpress
+namespace AccountingServices.AliExpressService
 {
     public class AliExpressFactory : CachedList<AliExpressOrder>
     {

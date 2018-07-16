@@ -10,7 +10,6 @@ namespace AccountingWebClient
     // https://stackoverflow.com/questions/51115710/net-core-queue-background-tasks
     public class QueuedHostedService : BackgroundService
     {
-        private Task _backgroundTask;
         private readonly ILogger _logger;
 
         public QueuedHostedService(IBackgroundTaskQueue taskQueue,

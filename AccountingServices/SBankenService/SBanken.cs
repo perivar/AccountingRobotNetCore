@@ -12,7 +12,7 @@ using SeleniumExtras.WaitHelpers;
 using AccountingServices.Excel;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.SBanken
+namespace AccountingServices.SBankenService
 {
     public static class SBanken
     {

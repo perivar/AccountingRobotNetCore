@@ -12,7 +12,7 @@ using Microsoft.Extensions.Configuration;
 using System.Reflection;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.Oberlo
+namespace AccountingServices.OberloService
 {
     public static class Oberlo
     {

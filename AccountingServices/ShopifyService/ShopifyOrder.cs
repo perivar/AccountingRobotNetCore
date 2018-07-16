@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AccountingServices.Shopify
+namespace AccountingServices.ShopifyService
 {
     public class ShopifyOrder
     {

@@ -29,7 +29,7 @@ namespace AccountingServices.PayPalService
             // we have to combine two files:
             // the original cache file and the new transactions file
             Console.Out.WriteLine("Finding PayPal transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            var newPayPalTransactions = Paypal.GetPayPalTransactions(configuration, from, to);
+            var newPayPalTransactions = PayPal.GetPayPalTransactions(configuration, from, to);
             var originalPayPalTransactions = Utils.ReadCacheFile<PayPalTransaction>(lastCacheFileInfo.FilePath);
 
             // copy all the original PayPal transactions into a new file, except entries that are 
@@ -45,7 +45,7 @@ namespace AccountingServices.PayPalService
         public override List<PayPalTransaction> GetList(IMyConfiguration configuration, DateTime from, DateTime to)
         {
             Console.Out.WriteLine("Finding PayPal transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            return Paypal.GetPayPalTransactions(configuration, from, to);
+            return PayPal.GetPayPalTransactions(configuration, from, to);
         }
     }
 }

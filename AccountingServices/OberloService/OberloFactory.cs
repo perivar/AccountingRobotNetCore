@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using System.Linq;
 using AccountingServices.Helpers;
 
-namespace AccountingServices.Oberlo
+namespace AccountingServices.OberloService
 {
     public class OberloFactory : CachedList<OberloOrder>
     {
