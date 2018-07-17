@@ -120,8 +120,12 @@ namespace AccountingWebClient.Controllers
         public IActionResult StartProgress()
         {
             // get the server scheme, host and port and build the url to the SignalR Hub
-            //var signalRHubUrl = $"{Request.Scheme}://{Request.Host.Value}/jobprogress"; // http://localhost:9999/jobprogress
             string signalRHubUrl = _appConfig["SignalRHubUrl"];
+            if (string.IsNullOrEmpty(signalRHubUrl))
+            {
+                // http://localhost:9999/jobprogress
+                signalRHubUrl = $"{Request.Scheme}://{Request.Host.Value}/jobprogress";
+            }
 
             // use a signalr client as writer
             string jobId = Guid.NewGuid().ToString("N");
