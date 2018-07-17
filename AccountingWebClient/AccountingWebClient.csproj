@@ -20,6 +20,5 @@
   </ItemGroup>     
   <ItemGroup>
     <ProjectReference Include="..\AccountingServices\AccountingServices.csproj"/>
-    <ProjectReference Include="..\AccountingRobot\AccountingRobot.csproj"/>
   </ItemGroup>
 </Project>
