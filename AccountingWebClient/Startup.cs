@@ -35,6 +35,20 @@ namespace AccountingWebClient
                 options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             }).AddCookie(options => { options.LoginPath = "/Home/Login"; });
 
+            // enable CORS access
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll",
+                  builder =>
+                  {
+                     builder
+                     .AllowAnyOrigin() 
+                     .AllowAnyMethod()
+                     .AllowAnyHeader()
+                     .AllowCredentials();
+                  });
+            });
+
             // ensure the logon page is anonymous
             services.AddMvc()
             .AddRazorPagesOptions(options =>
@@ -72,6 +86,15 @@ namespace AccountingWebClient
                 app.UseHsts();
             }
 
+            // add CORS for signalr to work
+            app.UseCors("AllowAll");
+
+            // add signalr hub url
+            app.UseSignalR(routes =>
+            {
+                routes.MapHub<JobProgressHub>("/jobprogress");
+            });
+
             // app.UseHttpsRedirection();
 
             // serve static files in the wwwroot folder
@@ -82,12 +105,6 @@ namespace AccountingWebClient
 
             // IMPORTANT: This session call MUST go before UseMvc()
             app.UseSession();
-
-            // add signalr hub url
-            app.UseSignalR(routes =>
-            {
-                routes.MapHub<JobProgressHub>("/jobprogress");
-            });
 
             // the default route is sufficient
             // {controller=Home}/{action=Index}/{id?}
