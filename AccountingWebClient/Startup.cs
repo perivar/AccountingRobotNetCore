@@ -35,7 +35,7 @@ namespace AccountingWebClient
                 options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             }).AddCookie(options => { options.LoginPath = "/Home/Login"; });
 
-            // enable CORS access
+            // enable CORS access. Make sure this call is put just above app.AddMvc
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll",
@@ -47,6 +47,15 @@ namespace AccountingWebClient
                       .AllowAnyHeader()
                       .AllowCredentials();
                   });
+
+                options.AddPolicy("AllowLocalhost",
+                    builder =>
+                    {
+                        builder
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .WithOrigins("http://localhost:5001");
+                    });
             });
 
             // ensure the logon page is anonymous
@@ -86,8 +95,8 @@ namespace AccountingWebClient
                 app.UseHsts();
             }
 
-            // add CORS for signalr to work
-            app.UseCors("AllowAll");
+            // add CORS for signalr to work. Make sure this call is put just above app.UseSignalR
+            app.UseCors("AllowLocalhost");
 
             // add signalr hub url
             app.UseSignalR(routes =>
