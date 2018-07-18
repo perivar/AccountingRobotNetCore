@@ -33,12 +33,12 @@ namespace AccountingServices.SBankenService
             }
         }
 
-        public override List<SBankenTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
+        public override async Task<List<SBankenTransaction>> GetCombinedUpdatedAndExistingAsync(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
         {
             // we have to combine two files:
             // the original cache file and the new transactions file
-            writer.WriteLine("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            var newSBankenTransactions = GetSBankenTransactions(configuration, from, to);
+            await writer.WriteLineAsync(string.Format("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to));
+            var newSBankenTransactions = await GetSBankenTransactionsAsync(configuration, from, to);
             var originalSBankenTransactions = Utils.ReadCacheFile<SBankenTransaction>(lastCacheFileInfo.FilePath);
 
             // copy all the original SBanken transactions into a new file, except entries that are 
@@ -51,23 +51,10 @@ namespace AccountingServices.SBankenService
             return updatedSBankenTransactions;
         }
 
-        public override List<SBankenTransaction> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
+        public override async Task<List<SBankenTransaction>> GetListAsync(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            writer.WriteLine("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            return GetSBankenTransactions(configuration, from, to);
-        }
-
-        private List<SBankenTransaction> GetSBankenTransactions(IMyConfiguration configuration, DateTime from, DateTime to)
-        {
-            try
-            {
-                return GetSBankenTransactionsAsync(configuration, from, to).GetAwaiter().GetResult();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("ERROR: Could not get transactions from SBanken! '{0}'", e.Message);
-                return new List<SBankenTransaction>();
-            }
+            await writer.WriteLineAsync(string.Format("Finding SBanken transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to));
+            return await GetSBankenTransactionsAsync(configuration, from, to);
         }
 
         private async Task<List<SBankenTransaction>> GetSBankenTransactionsAsync(IMyConfiguration configuration, DateTime from, DateTime to)
@@ -115,7 +102,7 @@ namespace AccountingServices.SBankenService
             //};
             var tokenClient = new TokenClient(discoResult.TokenEndpoint, clientId, secret);
 
-            var tokenResponse = tokenClient.RequestClientCredentialsAsync().Result;
+            var tokenResponse = await tokenClient.RequestClientCredentialsAsync();
 
             if (tokenResponse.IsError)
             {

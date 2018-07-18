@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using AccountingServices.Helpers;
@@ -26,11 +27,11 @@ namespace AccountingServices.OberloService
             }
         }
 
-        public override List<OberloOrder> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
+        public override async Task<List<OberloOrder>> GetCombinedUpdatedAndExistingAsync(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
         {
             // we have to combine two files:
             // the original cache file and the new transactions file
-            writer.WriteLine("Finding Oberlo Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            await writer.WriteLineAsync(string.Format("Finding Oberlo Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to));
             var newOberloOrders = Oberlo.ScrapeOberloOrders(configuration, from, to);
             var originalOberloOrders = Utils.ReadCacheFile<OberloOrder>(lastCacheFileInfo.FilePath);
 
@@ -44,9 +45,9 @@ namespace AccountingServices.OberloService
             return updatedOberloOrders;
         }
 
-        public override List<OberloOrder> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
+        public override async Task<List<OberloOrder>> GetListAsync(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            writer.WriteLine("Finding Oberlo Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
+            await writer.WriteLineAsync(string.Format("Finding Oberlo Orders from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to));
             return Oberlo.ScrapeOberloOrders(configuration, from, to);
         }
     }

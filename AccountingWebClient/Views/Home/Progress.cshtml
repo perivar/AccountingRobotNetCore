@@ -4,26 +4,21 @@
 <h2>@ViewData["Title"]</h2>
 
 <div class="container">
-    <div class="row">&nbsp;</div>
-    <div class="row">
-        <div class="col-6">
-            User: <input type="text" id="userInput" />
+    <div class="form-group row">
+        <label for="userInput" class="col-form-label">User</label>
+        <div class="col-sm-2">
+            <input type="text" class="form-control" id="userInput" />
         </div>
-        <div class="col-6">
-            Message: <input type="text" id="messageInput" />
-            <input type="button" id="sendButton" value="Send Message" />
+        <label for="messageInput" class="col-form-label">Message</label>
+        <div class="col-sm-4">
+            <input type="text" class="form-control" id="messageInput" />            
         </div>
+        <input type="button" class="btn btn-primary mb-2" id="sendButton" value="Send Message" />
     </div>
-    <div class="row">
-        <div class="col-12">
-            <hr />
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-12">
-            <code><ul id="messagesList"></ul></code>
-        </div>
-    </div>
+</div>
+
+<div id="messageContainer" class="container mt-2" style="max-height:350px;min-height:350px;overflow-y:scroll;overflow-x:hidden;">
+    <code><ul id="messagesList"></ul></code>
 </div>
 
 @section Scripts
@@ -37,10 +32,12 @@
         
         connection.on("ReceiveMessage", (user, message) => {
             const msg = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const encodedMsg = user + ": " + msg;
-            const li = document.createElement("li");
-            li.textContent = encodedMsg;
-            document.getElementById("messagesList").appendChild(li);
+            // const encodedMsg = user + ": " + msg;
+            // const li = document.createElement("li");
+            // li.textContent = encodedMsg;
+            // document.getElementById("messagesList").appendChild(li);
+            $('#messagesList').append('<li><strong>' + user + '</strong>: ' + msg + '</li>');
+            $('div#messageContainer').scrollTop($('div#messageContainer')[0].scrollHeight);
         });
 
         connection.start()

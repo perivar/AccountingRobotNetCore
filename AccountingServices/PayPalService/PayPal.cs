@@ -19,19 +19,19 @@ namespace AccountingServices.PayPalService
 {
     public static class PayPal
     {
-        public static List<PayPalTransaction> GetPayPalTransactions(IMyConfiguration configuration, DateTime from, DateTime to)
+        public static async Task<List<PayPalTransaction>> GetPayPalTransactionsAsync(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            var payPalTransactions = GetPayPalTransactionsListSoap(configuration, from, to);
+            var payPalTransactions = GetPayPalTransactionsListSoapAsync(configuration, writer, from, to);
             //var payPalTransactions = GetPayPalPaymentListRest(configuration, from, to);
 
             //var payPalTransactions = new List<PayPalTransaction>();
             //GetPayPalTransactionsListRest(configuration, from, to, payPalTransactions);
             //GetPayPalTransactionsList(configuration, DateTime.Now.AddDays(-31), DateTime.Now, payPalTransactions);
 
-            return payPalTransactions;
+            return await payPalTransactions;
         }
 
-        private static List<PayPalTransaction> GetPayPalTransactionsListSoap(IMyConfiguration configuration, DateTime from, DateTime to)
+        private static async Task<List<PayPalTransaction>> GetPayPalTransactionsListSoapAsync(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
             var payPalTransactions = new List<PayPalTransaction>();
 
@@ -70,14 +70,14 @@ namespace AccountingServices.PayPalService
                     request.Content = new StringContent(envelope, Encoding.UTF8, "text/xml");
 
                     // request is now ready to be sent via HttpClient
-                    HttpResponseMessage response = httpClient.SendAsync(request).Result;
+                    // 
+                    HttpResponseMessage response = await httpClient.SendAsync(request);
                     if (!response.IsSuccessStatusCode)
                     {
                         throw new Exception();
                     }
 
-                    Task<Stream> streamTask = response.Content.ReadAsStreamAsync();
-                    Stream stream = streamTask.Result;
+                    var stream = await response.Content.ReadAsStreamAsync();
                     var sr = new StreamReader(stream);
                     var soapResponse = XDocument.Load(sr);
 
@@ -120,7 +120,7 @@ namespace AccountingServices.PayPalService
             }
             catch (System.Exception e)
             {
-                Console.WriteLine("ERROR: Could not get paypal transactions! '{0}'", e.Message);
+                await writer.WriteLineAsync(string.Format("ERROR: Could not get paypal transactions! '{0}'", e.Message));
             }
 
             return payPalTransactions;

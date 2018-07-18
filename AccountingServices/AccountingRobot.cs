@@ -74,21 +74,21 @@ namespace AccountingServices
                 // prepopulate lookup lists
                 await writer.WriteLineAsync("Prepopulating Lookup Lists ...");
 
-                var stripeTransactions = StripeChargeFactory.Instance.GetLatest(configuration, writer, ForceUpdateYear);
+                var stripeTransactions = await StripeChargeFactory.Instance.GetLatestAsync(configuration, writer, ForceUpdateYear);
                 await writer.WriteLineAsync("Successfully read Stripe transactions ...");
 
-                var paypalTransactions = PayPalFactory.Instance.GetLatest(configuration, writer, ForceUpdateYear);
+                var paypalTransactions = await PayPalFactory.Instance.GetLatestAsync(configuration, writer, ForceUpdateYear);
                 await writer.WriteLineAsync("Successfully read PayPal transactions ...");
 
                 // process the transactions and create accounting overview
                 var customerNames = new List<string>();
-                var accountingShopifyItems = await ProcessShopifyStatement(configuration, customerNames, stripeTransactions, paypalTransactions);
+                var accountingShopifyItems = await ProcessShopifyStatementAsync(configuration, customerNames, stripeTransactions, paypalTransactions);
 
                 // select only distinct 
                 customerNames = customerNames.Distinct().ToList();
 
                 // find latest skandiabanken transaction spreadsheet
-                var sBankenTransactions = SBankenFactory.Instance.GetLatest(configuration, writer, ForceUpdateYear);
+                var sBankenTransactions = await SBankenFactory.Instance.GetLatestAsync(configuration, writer, ForceUpdateYear);
                 var sBankenBankStatement = SBanken.GetBankStatementFromTransactions(sBankenTransactions);
                 if (sBankenBankStatement.Transactions.Count() == 0)
                 {
@@ -96,9 +96,9 @@ namespace AccountingServices
                     await writer.WriteLineAsync("ERROR! No SBanken transactions read. Quitting!");
                     return;
                 }
-                var accountingBankItems = await ProcessBankAccountStatement(configuration, sBankenBankStatement, customerNames, stripeTransactions, paypalTransactions);
+                var accountingBankItems = await ProcessBankAccountStatementAsync(configuration, sBankenBankStatement, customerNames, stripeTransactions, paypalTransactions);
 
-                var accountingPayPalPaymentItems = await ProcessPayPalPayments(configuration, paypalTransactions);
+                var accountingPayPalPaymentItems = await ProcessPayPalPaymentsAsync(configuration, paypalTransactions);
 
                 // merge into one list
                 accountingShopifyItems.AddRange(accountingBankItems);
@@ -119,7 +119,7 @@ namespace AccountingServices
                 if (null != lastAccountingFileInfo && !lastAccountingFileInfo.Equals(default(FileDate)))
                 {
                     await writer.WriteLineAsync(string.Format("Found an accounting spreadsheet from {0:yyyy-MM-dd}", lastAccountingFileInfo.From));
-                    await UpdateExcelFile(lastAccountingFileInfo.FilePath, accountingItems);
+                    await UpdateExcelFileAsync(lastAccountingFileInfo.FilePath, accountingItems);
 
                     // rename spreadsheet to today's date
                     if (lastAccountingFileInfo.To != date.CurrentDate.Date)
@@ -149,7 +149,7 @@ namespace AccountingServices
                         string accountingFileName = string.Format("{0}-{1:yyyy-MM-dd}-{2:yyyy-MM-dd}.xlsx", accountingFileNamePrefix, from, to);
                         string filePath = Path.Combine(accountingFileDir, accountingFileName);
 
-                        await ExportToExcel(filePath, accountingItems);
+                        await ExportToExcelAsync(filePath, accountingItems);
                         return;
                     }
                     else
@@ -160,11 +160,11 @@ namespace AccountingServices
                             int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(DEFAULT_GOOGLE_SHEET_NAME);
                             if (sheetId > 0)
                             {
-                                await UpdateGoogleSheets(googleSheetsFactory, accountingItems, doUseSubTotalsAtTop);
+                                await UpdateGoogleSheetsAsync(googleSheetsFactory, accountingItems, doUseSubTotalsAtTop);
                             }
                             else
                             {
-                                await ExportToGoogleSheets(googleSheetsFactory, accountingItems, doUseSubTotalsAtTop);
+                                await ExportToGoogleSheetsAsync(googleSheetsFactory, accountingItems, doUseSubTotalsAtTop);
                             }
                         }
                         return;
@@ -429,13 +429,13 @@ namespace AccountingServices
             );
         }
 
-        private async Task ExportToGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doUseSubTotalsAtTop)
+        private async Task ExportToGoogleSheetsAsync(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> accountingItems, bool doUseSubTotalsAtTop)
         {
             AppendDataTable(googleSheetsFactory, accountingItems, true, true, true, true, true, true, true, true, doUseSubTotalsAtTop);
             await writer.WriteLineAsync("Successfully wrote accounting file to Google Sheets");
         }
 
-        private async Task UpdateGoogleSheets(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> newAccountingItems, bool doUseSubTotalsAtTop)
+        private async Task UpdateGoogleSheetsAsync(GoogleSheetsFactory googleSheetsFactory, List<AccountingItem> newAccountingItems, bool doUseSubTotalsAtTop)
         {
             // Update Google Sheets spreadsheet 
             int sheetId = googleSheetsFactory.GetSheetIdFromSheetName(DEFAULT_GOOGLE_SHEET_NAME);
@@ -529,22 +529,6 @@ namespace AccountingServices
             {
                 using (var googleBatchDeleteRequest = new GoogleSheetsBatchUpdateRequests())
                 {
-                    /*
-                    // dt.Columns.Count contains an additional column for RowNumber
-                    var emptyRow = Enumerable.Repeat<string>(string.Empty, dt.Columns.Count - 1).ToArray();
-
-                    // clear rows - not delete them
-                    foreach (var rowToDelete in existingAccountingItemsToDelete)
-                    {
-                        int rowNumber = rowToDelete.Key.Field<int>("RowNumber");
-                        int startRowIndex = rowNumber - 1;
-                        int startColumnIndex = 0;
-                        int fgColorHeader = 0x000000;
-                        int bgColorHeader = 0xdbe5f1;
-                        googleBatchClearRequest.Add(GoogleSheetsRequests.GetUpdateCellsRequest(sheetId, startRowIndex, startColumnIndex, emptyRow, fgColorHeader, bgColorHeader));
-                    }
-                    */
-
                     int startRowNumber = existingAccountingItemsToDelete.FirstOrDefault().Key.Field<int>("RowNumber");
                     int endRowNumber = existingAccountingItemsToDelete.Last().Key.Field<int>("RowNumber");
                     int deleteRowStartIndex = startRowNumber;
@@ -606,7 +590,7 @@ namespace AccountingServices
         #endregion
 
         #region Excel Methods
-        private async Task ExportToExcel(string filePath, List<AccountingItem> accountingItems)
+        private async Task ExportToExcelAsync(string filePath, List<AccountingItem> accountingItems)
         {
             var dt = GetDataTable(accountingItems);
 
@@ -683,7 +667,7 @@ namespace AccountingServices
             }
         }
 
-        private async Task UpdateExcelFile(string filePath, List<AccountingItem> newAccountingItems)
+        private async Task UpdateExcelFileAsync(string filePath, List<AccountingItem> newAccountingItems)
         {
             // go through each row and check if it has already been "fixed".
             // i.e. the Number columns is no longer 0
@@ -1283,7 +1267,7 @@ namespace AccountingServices
         }
         #endregion
 
-        private async Task<List<AccountingItem>> ProcessPayPalPayments(IMyConfiguration configuration, List<PayPalTransaction> paypalTransactions)
+        private async Task<List<AccountingItem>> ProcessPayPalPaymentsAsync(IMyConfiguration configuration, List<PayPalTransaction> paypalTransactions)
         {
             var accountingList = new List<AccountingItem>();
 
@@ -1347,7 +1331,7 @@ namespace AccountingServices
             return accountingList;
         }
 
-        private async Task<List<AccountingItem>> ProcessBankAccountStatement(IMyConfiguration configuration, SkandiabankenBankStatement skandiabankenBankStatement, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)
+        private async Task<List<AccountingItem>> ProcessBankAccountStatementAsync(IMyConfiguration configuration, SkandiabankenBankStatement skandiabankenBankStatement, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)
         {
             var accountingList = new List<AccountingItem>();
 
@@ -1358,7 +1342,7 @@ namespace AccountingServices
             var to = date.CurrentDate;
 
             // prepopulate some lookup lists
-            var stripePayoutTransactions = StripePayoutFactory.Instance.GetLatest(configuration, writer, ForceUpdateYear);
+            var stripePayoutTransactions = await StripePayoutFactory.Instance.GetLatestAsync(configuration, writer, ForceUpdateYear);
             await writer.WriteLineAsync("Successfully read Stripe payout transactions ...");
 
             // check if we are processing aliexpress
@@ -1367,10 +1351,10 @@ namespace AccountingServices
             if (ProcessAliExpress)
             {
                 // process oberlo
-                oberloOrders = OberloFactory.Instance.GetLatest(configuration, writer);
+                oberloOrders = await OberloFactory.Instance.GetLatestAsync(configuration, writer);
 
                 // and then ali express
-                var aliExpressOrders = AliExpressFactory.Instance.GetLatest(configuration, writer);
+                var aliExpressOrders = await AliExpressFactory.Instance.GetLatestAsync(configuration, writer);
                 aliExpressOrderGroups = AliExpress.CombineOrders(aliExpressOrders);
             }
 
@@ -1630,7 +1614,7 @@ namespace AccountingServices
             return accountingList;
         }
 
-        private async Task<List<AccountingItem>> ProcessShopifyStatement(IMyConfiguration configuration, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)
+        private async Task<List<AccountingItem>> ProcessShopifyStatementAsync(IMyConfiguration configuration, List<string> customerNames, List<StripeTransaction> stripeTransactions, List<PayPalTransaction> paypalTransactions)
         {
             var accountingList = new List<AccountingItem>();
 
@@ -1644,7 +1628,7 @@ namespace AccountingServices
             var from = date.FirstDayOfTheYear; //.AddDays(-30); // always go back a month
             var to = date.CurrentDate;
             string querySuffix = string.Format(CultureInfo.InvariantCulture, "status=any&created_at_min={0:yyyy-MM-ddTHH:mm:sszzz}&created_at_max={1:yyyy-MM-ddTHH:mm:sszzz}", from, to);
-            var shopifyOrders = Shopify.ReadShopifyOrders(shopifyDomain, shopifyAPIKey, shopifyAPIPassword, querySuffix);
+            var shopifyOrders = await Shopify.ReadShopifyOrdersAsync(shopifyDomain, shopifyAPIKey, shopifyAPIPassword, querySuffix);
             await writer.WriteLineAsync("Successfully read all Shopify orders ...");
 
             await writer.WriteLineAsync("Processing Shopify orders started ...");

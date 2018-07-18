@@ -1,8 +1,9 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
-using System.Linq;
 using AccountingServices.Helpers;
 
 namespace AccountingServices.StripeService
@@ -25,12 +26,12 @@ namespace AccountingServices.StripeService
             }
         }
 
-        public override List<StripeTransaction> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
+        public override async Task<List<StripeTransaction>> GetCombinedUpdatedAndExistingAsync(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to)
         {
             // we have to combine two files:
             // the original cache file and the new transactions file
-            writer.WriteLine("Finding Stripe transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            var newStripeTransactions = Stripe.GetStripeChargeTransactions(configuration, from, to);
+            await writer.WriteLineAsync(string.Format("Finding Stripe transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to));
+            var newStripeTransactions = await Stripe.GetStripeChargeTransactionsAsync(configuration, from, to);
             var originalStripeTransactions = Utils.ReadCacheFile<StripeTransaction>(lastCacheFileInfo.FilePath);
 
             // copy all the original stripe transactions into a new file, except entries that are 
@@ -43,10 +44,10 @@ namespace AccountingServices.StripeService
             return updatedStripeTransactions;
         }
 
-        public override List<StripeTransaction> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
+        public override async Task<List<StripeTransaction>> GetListAsync(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to)
         {
-            writer.WriteLine("Finding Stripe transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to);
-            return Stripe.GetStripeChargeTransactions(configuration, from, to);
+            await writer.WriteLineAsync(string.Format("Finding Stripe transactions from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", from, to));
+            return await Stripe.GetStripeChargeTransactionsAsync(configuration, from, to);
         }
     }
 }

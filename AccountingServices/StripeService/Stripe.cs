@@ -1,15 +1,16 @@
-﻿using AccountingServices.Helpers;
-using Stripe;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Stripe;
+using AccountingServices.Helpers;
 
 namespace AccountingServices.StripeService
 {
     public static class Stripe
     {
         #region Charge Transactions (StripeChargeService)
-        public static List<StripeTransaction> GetStripeChargeTransactions(IMyConfiguration configuration, DateTime from, DateTime to)
+        public static async Task<List<StripeTransaction>> GetStripeChargeTransactionsAsync(IMyConfiguration configuration, DateTime from, DateTime to)
         {
             // get stripe configuration parameters
             string stripeApiKey = configuration.GetValue("StripeApiKey");
@@ -31,7 +32,7 @@ namespace AccountingServices.StripeService
                 IEnumerable<StripeCharge> charges = null;
                 if (String.IsNullOrEmpty(lastId))
                 {
-                    charges = chargeService.List(
+                    charges = await chargeService.ListAsync(
                     new StripeChargeListOptions()
                     {
                         Limit = MAX_PAGINATION,
@@ -45,7 +46,7 @@ namespace AccountingServices.StripeService
                 }
                 else
                 {
-                    charges = chargeService.List(
+                    charges = await chargeService.ListAsync(
                     new StripeChargeListOptions()
                     {
                         Limit = MAX_PAGINATION,
@@ -104,7 +105,7 @@ namespace AccountingServices.StripeService
         #endregion
 
         #region Payout Transactions (StripeBalanceService)
-        public static List<StripeTransaction> GetStripePayoutTransactions(IMyConfiguration configuration, DateTime from, DateTime to)
+        public static async Task<List<StripeTransaction>> GetStripePayoutTransactionsAsync(IMyConfiguration configuration, DateTime from, DateTime to)
         {
             // get stripe configuration parameters
             string stripeApiKey = configuration.GetValue("StripeApiKey");
@@ -122,7 +123,7 @@ namespace AccountingServices.StripeService
                 IEnumerable<StripePayout> charges = null;
                 if (String.IsNullOrEmpty(lastId))
                 {
-                    charges = payoutService.List(
+                    charges = await payoutService.ListAsync(
                     new StripePayoutListOptions()
                     {
                         Limit = MAX_PAGINATION,
@@ -136,7 +137,7 @@ namespace AccountingServices.StripeService
                 }
                 else
                 {
-                    charges = payoutService.List(
+                    charges = await payoutService.ListAsync(
                     new StripePayoutListOptions()
                     {
                         Limit = MAX_PAGINATION,

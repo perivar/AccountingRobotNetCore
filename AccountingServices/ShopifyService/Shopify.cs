@@ -36,7 +36,7 @@ namespace AccountingServices.ShopifyService
             }
         }
 
-        public static void ReadShopifyOrdersPage(List<ShopifyOrder> shopifyOrders, string shopifyDomain, string shopifyAPIKey, string shopifyAPIPassword, int limit, int page, string querySuffix)
+        public static async Task ReadShopifyOrdersPageAsync(List<ShopifyOrder> shopifyOrders, string shopifyDomain, string shopifyAPIKey, string shopifyAPIPassword, int limit, int page, string querySuffix)
         {
             // GET /admin/orders.json?limit=250&page=1
             // Retrieve a list of Orders(OPEN Orders by default, use status=any for ALL orders)
@@ -66,7 +66,7 @@ namespace AccountingServices.ShopifyService
                 // string url = String.Format("https://{0}:{1}@{2}/admin/orders.json", shopifyAPIKey, shopifyAPIPassword, shopifyDomain);
                 // https://stackoverflow.com/questions/28177871/shopify-and-private-applications
                 client.Headers.Add("X-Shopify-Access-Token", shopifyAPIPassword);
-                string json = client.DownloadString(url);
+                string json = await client.DownloadStringTaskAsync(url);
 
                 // parse json
                 dynamic jsonDe = JsonConvert.DeserializeObject(json);
@@ -153,7 +153,7 @@ namespace AccountingServices.ShopifyService
             }
         }
 
-        public static List<ShopifyOrder> ReadShopifyOrders(string shopifyDomain, string shopifyAPIKey, string shopifyAPIPassword, int totalShopifyOrders, string querySuffix)
+        public static async Task<List<ShopifyOrder>> ReadShopifyOrdersAsync(string shopifyDomain, string shopifyAPIKey, string shopifyAPIPassword, int totalShopifyOrders, string querySuffix)
         {
             // https://ecommerce.shopify.com/c/shopify-apis-and-technology/t/paginate-api-results-113066
             // Use the /admin/products/count.json to get the count of all products. 
@@ -170,17 +170,17 @@ namespace AccountingServices.ShopifyService
                 int numPages = (int)Math.Ceiling((double)totalShopifyOrders / limit);
                 for (int i = 1; i <= numPages; i++)
                 {
-                    ReadShopifyOrdersPage(shopifyOrders, shopifyDomain, shopifyAPIKey, shopifyAPIPassword, limit, i, querySuffix);
+                    await ReadShopifyOrdersPageAsync(shopifyOrders, shopifyDomain, shopifyAPIKey, shopifyAPIPassword, limit, i, querySuffix);
                 }
             }
 
             return shopifyOrders;
         }
 
-        public static List<ShopifyOrder> ReadShopifyOrders(string shopifyDomain, string shopifyAPIKey, string shopifyAPIPassword, string querySuffix = "status=any")
+        public static async Task<List<ShopifyOrder>> ReadShopifyOrdersAsync(string shopifyDomain, string shopifyAPIKey, string shopifyAPIPassword, string querySuffix = "status=any")
         {
             int totalShopifyOrders = CountShopifyOrders(shopifyDomain, shopifyAPIKey, shopifyAPIPassword, querySuffix);
-            return ReadShopifyOrders(shopifyDomain, shopifyAPIKey, shopifyAPIPassword, totalShopifyOrders, querySuffix);
+            return await ReadShopifyOrdersAsync(shopifyDomain, shopifyAPIKey, shopifyAPIPassword, totalShopifyOrders, querySuffix);
         }
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace AccountingServices.Helpers
 {
@@ -11,7 +12,7 @@ namespace AccountingServices.Helpers
 
         protected abstract DateTime ForcedUpdateFromDate { get; }
 
-        public List<T> GetLatest(IMyConfiguration configuration, TextWriter writer, bool forceUpdate = false)
+        public async Task<List<T>> GetLatestAsync(IMyConfiguration configuration, TextWriter writer, bool forceUpdate = false)
         {
             var date = new Date();
             var currentDate = date.CurrentDate;
@@ -25,12 +26,12 @@ namespace AccountingServices.Helpers
 
             if (forceUpdate)
             {
-                writer.WriteLine("Forcing updating from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", ForcedUpdateFromDate, to);
-                var values = GetList(configuration, writer, ForcedUpdateFromDate, to);
+                await writer.WriteLineAsync(string.Format("Forcing updating from {0:yyyy-MM-dd} to {1:yyyy-MM-dd}", ForcedUpdateFromDate, to));
+                var values = await GetListAsync(configuration, writer, ForcedUpdateFromDate, to);
 
                 string forcedCacheFilePath = Path.Combine(cacheDir, string.Format("{0}-{1:yyyy-MM-dd}-{2:yyyy-MM-dd}.csv", CacheFileNamePrefix, ForcedUpdateFromDate, to));
                 Utils.WriteCacheFile(forcedCacheFilePath, values);
-                writer.WriteLine("Successfully wrote file to {0}", forcedCacheFilePath);
+                await writer.WriteLineAsync(string.Format("Successfully wrote file to {0}", forcedCacheFilePath));
                 return values;
             }
 
@@ -48,47 +49,47 @@ namespace AccountingServices.Helpers
                 if (lastCacheFileInfo.To.Date.Equals(currentDate.Date))
                 {
                     // use latest cache file (or update if the cache file is empty)
-                    return GetList(configuration, writer, lastCacheFileInfo.FilePath, from, to);
+                    return await GetListAsync(configuration, writer, lastCacheFileInfo.FilePath, from, to);
                 }
                 else if (from != firstDayOfTheYear)
                 {
                     // combine new and old values
-                    var updatedValues = GetCombinedUpdatedAndExisting(configuration, writer, lastCacheFileInfo, from, to);
+                    var updatedValues = await GetCombinedUpdatedAndExistingAsync(configuration, writer, lastCacheFileInfo, from, to);
 
                     // and store to new file
                     string newCacheFilePath = Path.Combine(cacheDir, string.Format("{0}-{1:yyyy-MM-dd}-{2:yyyy-MM-dd}.csv", CacheFileNamePrefix, firstDayOfTheYear, to));
                     Utils.WriteCacheFile(newCacheFilePath, updatedValues);
-                    writer.WriteLine("Successfully wrote file to {0}", newCacheFilePath);
+                    await writer.WriteLineAsync(string.Format("Successfully wrote file to {0}", newCacheFilePath));
                     return updatedValues;
                 }
             }
 
             // get updated transactions (or from cache file)
             string cacheFilePath = Path.Combine(cacheDir, string.Format("{0}-{1:yyyy-MM-dd}-{2:yyyy-MM-dd}.csv", CacheFileNamePrefix, from, to));
-            return GetList(configuration, writer, cacheFilePath, from, to);
+            return await GetListAsync(configuration, writer, cacheFilePath, from, to);
         }
 
-        public List<T> GetList(IMyConfiguration configuration, TextWriter writer, string cacheFilePath, DateTime from, DateTime to)
+        public async Task<List<T>> GetListAsync(IMyConfiguration configuration, TextWriter writer, string cacheFilePath, DateTime from, DateTime to)
         {
             var cachedList = Utils.ReadCacheFile<T>(cacheFilePath);
             //if (cachedList != null && cachedList.Count() > 0)
             if (cachedList != null)
             {
-                writer.WriteLine("Using cache file {0}.", cacheFilePath);
+                await writer.WriteLineAsync(string.Format("Using cache file {0}.", cacheFilePath));
                 return cachedList;
             }
             else
             {
-                writer.WriteLine("Cache file is empty. Updating ...");
-                var values = GetList(configuration, writer, from, to);
+                await writer.WriteLineAsync("Cache file is empty. Updating ...");
+                var values = await GetListAsync(configuration, writer, from, to);
                 Utils.WriteCacheFile(cacheFilePath, values);
-                writer.WriteLine("Successfully wrote file to {0}", cacheFilePath);
+                await writer.WriteLineAsync(string.Format("Successfully wrote file to {0}", cacheFilePath));
                 return values;
             }
         }
 
-        public abstract List<T> GetList(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to);
+        public abstract Task<List<T>> GetListAsync(IMyConfiguration configuration, TextWriter writer, DateTime from, DateTime to);
 
-        public abstract List<T> GetCombinedUpdatedAndExisting(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to);
+        public abstract Task<List<T>> GetCombinedUpdatedAndExistingAsync(IMyConfiguration configuration, TextWriter writer, FileDate lastCacheFileInfo, DateTime from, DateTime to);
     }
 }

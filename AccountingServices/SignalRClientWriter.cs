@@ -35,7 +35,7 @@ namespace AccountingServices
             .Build();
 
             // open connection
-            CheckOrOpenConnection().GetAwaiter();
+            CheckOrOpenConnection().Wait();
         }
 
         public override async Task WriteAsync(string value)
@@ -69,7 +69,7 @@ namespace AccountingServices
 
         public override void Write(string value)
         {
-            OutputMessage(value).GetAwaiter();
+            OutputMessage(value).Wait();
 
             if (FlushAfterEveryWrite)
                 Flush();
@@ -77,7 +77,7 @@ namespace AccountingServices
 
         public override void WriteLine(string value)
         {
-            OutputMessage(value).GetAwaiter();
+            OutputMessage(value).Wait();
 
             if (FlushAfterEveryWrite)
                 Flush();
@@ -85,7 +85,7 @@ namespace AccountingServices
 
         public override void WriteLine()
         {
-            OutputMessage(null).GetAwaiter();
+            OutputMessage(null).Wait();
 
             if (FlushAfterEveryWrite)
                 Flush();
