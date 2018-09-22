@@ -145,7 +145,7 @@ namespace AccountingServices.Helpers
 
         /// <summary>
         /// Find the path relative to the running assembly
-        /// Use like this Utils.GetFilePathRelativeToAssembly(@"..\..\..\..\AccountingServices\bin\debug\netcoreapp2.0");
+        /// Use like this Utils.GetFilePathRelativeToAssembly(@"..\..\..\..\AccountingServices\bin\debug\netcoreapp2.1");
         /// </summary>
         /// <param name="pathRelativeToAssembly">relative path</param>
         /// <returns>the full path relative to the assembly</returns>

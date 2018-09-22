@@ -71,7 +71,7 @@ namespace AccountingServices.SBankenService
             // https://github.com/anderaus/Sbanken.DotNet/blob/master/src/Sbanken.DotNet/Http/Connection.cs
 
             /** Setup constants */
-            const string discoveryEndpoint = "https://api.sbanken.no/identityserver";
+            const string discoveryEndpoint = "https://auth.sbanken.no/identityserver";
             const string apiBaseAddress = "https://api.sbanken.no";
             const string bankBasePath = "/bank";
 
