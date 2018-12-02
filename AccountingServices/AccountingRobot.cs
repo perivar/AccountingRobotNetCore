@@ -82,7 +82,17 @@ namespace AccountingServices
 
                 // process the transactions and create accounting overview
                 var customerNames = new List<string>();
-                var accountingShopifyItems = await ProcessShopifyStatementAsync(configuration, customerNames, stripeTransactions, paypalTransactions);
+                var accountingShopifyItems = new List<AccountingItem>();
+                try
+                {
+                    accountingShopifyItems = await ProcessShopifyStatementAsync(configuration, customerNames, stripeTransactions, paypalTransactions);
+                }
+                catch (System.Net.WebException we)
+                {
+                    // No shopify orders read, quitting
+                    await writer.WriteLineAsync("Error! Shopify error, quitting: " + we.Message);
+                    return;
+                }
 
                 // select only distinct 
                 customerNames = customerNames.Distinct().ToList();

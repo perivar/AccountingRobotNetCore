@@ -131,15 +131,15 @@ namespace AccountingServices.ShopifyService
                             var refundItems = refund.refund_line_items;
                             foreach (var refundItem in refundItems)
                             {
-                                refundSubTotal += (decimal) refundItem.subtotal;
-                                refundTotalTax += (decimal) refundItem.total_tax;
+                                refundSubTotal += (decimal)refundItem.subtotal;
+                                refundTotalTax += (decimal)refundItem.total_tax;
                             }
 
                             var orderAdjustments = refund.order_adjustments;
                             foreach (var orderAdjustment in orderAdjustments)
                             {
-                                refundSubTotal += -((decimal) orderAdjustment.amount);
-                                refundTotalTax += -((decimal) orderAdjustment.tax_amount);
+                                refundSubTotal += -((decimal)orderAdjustment.amount);
+                                refundTotalTax += -((decimal)orderAdjustment.tax_amount);
                             }
                         }
 
